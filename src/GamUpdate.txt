@@ -1,3 +1,9 @@
+4.65.69
+
+Added `exportsheetaspdf <String>` to `gam get drivefile` to allow downloading Google Sheets into PDF files.
+
+* https://github.com/taers232c/GAMADV-X/wiki/Users-Drive-Files#download-files
+
 4.65.68
 
 Added `minimumfilesize <Integer>` to `gam print/show filecounts` and `gam show filetree` to allow selection of files with binary content of size >= `<Integer>`.
@@ -9,7 +15,7 @@ Added `minimumfilesize <Integer>` to `gam print filelist` to allow selection of 
 4.65.66
 
 Improvements to gam report commands that allow greater ability to select reports and specify dates.
-See:
+
 * https://github.com/taers232c/GAMADV-X/wiki/Reports
 
 4.65.65
