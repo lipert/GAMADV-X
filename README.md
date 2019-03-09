@@ -1,9 +1,9 @@
 - [Introduction](#introduction)
 - [Requirements](#requirements)
 - [Downloads](#downloads)
-- [Installation - New Users](#installation---new-users)
-- [Installation - Upgrading from a GAM version other than a prior version of GAMADV-X](#installation---upgrading-from-a-gam-version-other-than-a-prior-version-of-gamadv-x)
-- [Installation - Upgrading from a prior version of GAMADV-X](#installation---upgrading-from-a-prior-version-of-gamadv-x)
+- [Installation - First time GAM installation](#installation---first-time-GAM-installation)
+- [Installation - Upgrading from a GAM version other than a prior version of GAMADV-X or GAMADV-XTD](#installation---upgrading-from-a-gam-version-other-than-a-prior-version-of-gamadv-x-or-gamadv-xtd)
+- [Installation - Upgrading from a prior version of GAMADV-X or GAMADV-XTD](#installation---upgrading-from-a-prior-version-of-gamadv-x-or-gamadv-xtd)
 
 # Introduction
 GAMADV-X is a free, open source command line tool for Google G Suite Administrators to manage domain and user settings quickly and easily.
@@ -13,6 +13,8 @@ This page provides simple instructions for downloading, installing and starting 
 GAMADV-X requires G Suite for Business, Education, Non Profit, Partner or Government Edition. Google Apps Free Edition has limited API support and not all GAM commands work.
 
 GAMADV-X is a rewrite/extension of Jay Lee's [GAM](https://github.com/jay0lee/GAM), without his efforts, this version wouldn't exist.
+
+GAMADV-X is backwards compatible with [GAM](https://github.com/jay0lee/GAM), meaning that if your command works with regular GAM, it will also work with GAMADV-X. There may be differences in output, but the syntax is compatible.
 
 # Documentation
 General GAM documentation is hosted in the [GitHub Wiki]. Documentation specifically for GAMADV-X is hosted in the [GitHub GAMADV-X Wiki] and in Gam*.txt files.
@@ -33,61 +35,25 @@ To run all commands properly, GAMADV-X requires three things:
 * A special service account that is authorized to act on behalf of your users in order to modify user-specific settings and data such as Drive files, Calendars and Gmail messages and settings like signatures.
 
 # Downloads
-You can download the current GAMADV-X release from the [GitHub Releases](https://github.com/taers232c/GAMADV-X/releases) page. Choose one of the following:
+You can download the current GAMADV-X release from the [GitHub Releases](https://github.com/taers232c/GAMADV-X/releases) page.
 
-* Single Executable Archive, Automatic, Linux/Mac OS/Google Cloud Shell
-  - Start a terminal session and execute one of the following commands:
-  - New install, default path `$HOME/bin`
-    - `bash <(curl -s -S -L https://git.io/vMHsV)`
-  - New install, specify a path
-    - `bash <(curl -s -S -L https://git.io/vMHsV) -d <Path>`
-  - Upgrade, default path `$HOME/bin`
-    - `bash <(curl -s -S -L https://git.io/vMHsV) -l`
-  - Upgrade, specify a path
-    - `bash <(curl -s -S -L https://git.io/vMHsV) -l -d <Path>`
+* Download: https://github.com/taers232c/GAMADV-X/wiki#downloads
 
-* Single Executable Archive, Manual, Google Cloud Shell - `gamadv-x-4.wx.yz-debian-x86_64.tar.xz`
-  - Download the archive, extract the contents into some directory.
-  - Start a terminal session and cd to the install directory.
+# Installation - First time GAM installation
+* Configuration: https://github.com/taers232c/GAMADV-X/wiki/gam.cfg
+* Download: https://github.com/taers232c/GAMADV-X/wiki#downloads
+* Install: https://github.com/taers232c/GAMADV-X/wiki/How-to-Install-Advanced-GAM
 
-* Single Executable Archive, Manual, Linux - `gamadv-x-4.wx.yz-linux-x86_64.tar.xz, gamadv-x-4.wx.yz-debian-x86_64.tar.xz`
-  - Download the archive, extract the contents into some directory.
-  - Start a terminal session and cd to the install directory.
+# Installation - Upgrading from a GAM version other than a prior version of GAMADV-X or GAMADV-XTD
+* Configuration: https://github.com/taers232c/GAMADV-X/wiki/gam.cfg
+* Download: https://github.com/taers232c/GAMADV-X/wiki#downloads
+# Install: https://github.com/taers232c/GAMADV-X/wiki/How-to-Upgrade-from-Standard-GAM
 
-* Single Executable Archive, Manual, Mac OS - `gamadv-x-4.wx.yz-macos-10.10-11-x86_64.tar, gamadv-x-4.wx.yz-macos-10.12-13.tar`
-  - Download the archive, extract the contents into some directory.
-  - Start a terminal session and cd to the install directory.
+# Installation - Upgrading from a prior version of GAMADV-X or GAMADV-XTD
+* Updates: https://github.com/taers232c/GAMADV-X/wiki/GAM-Updates
+* Download: https://github.com/taers232c/GAMADV-X/wiki#downloads
 
-* Single Executable Archive, Manual, Windows - `gamadv-x-4.wx.yz-windows-x64.zip, gamadv-x-4.wx.yz-windows.zip`
-  - Download the archive, extract the contents into some directory.
-  - Start a terminal session and cd to the install directory.
-
-* Single Executable Installer, Manual, Windows - `gamadv-x-4.wx.yz-windows-x64.msi`
-  - Download the installer and run it.
-  - Start a Command Prompt/PowerShell session and cd to the install directory.
-
-* Source, all platforms - Source code(zip), Source code(tar.gz)
-  - Download the archive, extract the contents into some directory.
-  - Start a terminal/Command Prompt/PowerShell session and cd to the install directory.
-
-# Installation - New Users
-For information about the GAMADV-X configuration file gam.cfg, see: https://github.com/taers232c/GAMADV-X/wiki/gam.cfg
-
-Enter the following gam commands and follow instructions to create the necessary authorizations.
-- Follow download instructions: [Downloads](#downloads)
-- For Linux/Mac OS/Google Cloud Shell, set your gam alias: `alias gam='$HOME/bin/gamadv-x/gam'`
-- Build gam.cfg: `gam config verify`
-- Build GAM Project for authorization: `gam create project`
-- Authorize Gam Client: `gam oauth create`
-- Authorize Service Account: `gam user <EmailAddress> check serviceaccount`
-
-# Installation - Upgrading from a GAM version other than a prior version of GAMADV-X
-Please see https://github.com/taers232c/GAMADV-X/wiki/How-to-Upgrade-from-Standard-GAM file for step-by-step instructions.
-
-# Installation - Upgrading from a prior version of GAMADV-X
-Read GamUpdate.txt
-
-Download latest version, install over existing installation or in a parallel directory.
+You can install multiple versions in different parallel directories.
 
 [GitHub Releases]: https://github.com/taers232c/GAMADV-X/releases
 [GitHub]: https://github.com/taers232c/GAMADV-X/tree/master
