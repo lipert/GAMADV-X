@@ -47,7 +47,7 @@ You can download the current GAMADV-X release from the [GitHub Releases](https:/
 # Installation - Upgrading from a GAM version other than a prior version of GAMADV-X or GAMADV-XTD
 * Configuration: https://github.com/taers232c/GAMADV-X/wiki/gam.cfg
 * Download: https://github.com/taers232c/GAMADV-X/wiki#downloads
-# Install: https://github.com/taers232c/GAMADV-X/wiki/How-to-Upgrade-from-Standard-GAM
+* Install: https://github.com/taers232c/GAMADV-X/wiki/How-to-Upgrade-from-Standard-GAM
 
 # Installation - Upgrading from a prior version of GAMADV-X or GAMADV-XTD
 * Updates: https://github.com/taers232c/GAMADV-X/wiki/GAM-Updates
