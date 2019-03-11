@@ -1,6 +1,6 @@
 - [Introduction](#introduction)
 - [Requirements](#requirements)
-- [Downloads](#downloads)
+- [Downloads]
 - [Installation - First time GAM installation](#installation---first-time-GAM-installation)
 - [Installation - Upgrading from a GAM version other than a prior version of GAMADV-X or GAMADV-XTD](#installation---upgrading-from-a-gam-version-other-than-a-prior-version-of-gamadv-x-or-gamadv-xtd)
 - [Installation - Upgrading from a prior version of GAMADV-X or GAMADV-XTD](#installation---upgrading-from-a-prior-version-of-gamadv-x-or-gamadv-xtd)
@@ -13,9 +13,9 @@ This page provides simple instructions for downloading, installing and starting 
 
 GAMADV-X requires G Suite for Business, Education, Non Profit, Partner or Government Edition. Google Apps Free Edition has limited API support and not all GAM commands work.
 
-GAMADV-X is a rewrite/extension of Jay Lee's [GAM](https://github.com/jay0lee/GAM), without his efforts, this version wouldn't exist.
+GAMADV-X is a rewrite/extension of Jay Lee's [GAM], without his efforts, this version wouldn't exist.
 
-GAMADV-X is backwards compatible with [GAM](https://github.com/jay0lee/GAM), meaning that if your command works with regular GAM, it will also work with GAMADV-X. There may be differences in output, but the syntax is compatible.
+GAMADV-X is backwards compatible with [GAM], meaning that if your command works with regular GAM, it will also work with GAMADV-X. There may be differences in output, but the syntax is compatible.
 
 # Documentation
 Basic GAM documentation is hosted in the [GitHub Wiki]. Documentation specifically for GAMADV-X is hosted in the [GitHub GAMADV-X Wiki] and in Gam*.txt files.
@@ -35,39 +35,41 @@ To run all commands properly, GAMADV-X requires three things:
 * Authorization to act as your G Suite Administrator in order to perform management functions like add users, modify group settings and membership and pull domain reports.
 * A special service account that is authorized to act on behalf of your users in order to modify user-specific settings and data such as Drive files, Calendars and Gmail messages and settings like signatures.
 
-# Downloads
-You can download the current GAMADV-X release from the [GitHub Releases](https://github.com/taers232c/GAMADV-X/releases) page.
-
-* Download: https://github.com/taers232c/GAMADV-X/wiki#downloads
-
 # Installation - First time GAM installation
 Use these steps if you have never used any version of GAM in your domain. They will create a GAM project
 and all necessary authentications.
 
-* Configuration: https://github.com/taers232c/GAMADV-X/wiki/gam.cfg
-* Download: https://github.com/taers232c/GAMADV-X/wiki#downloads
-* Install: https://github.com/taers232c/GAMADV-X/wiki/How-to-Install-Advanced-GAM
+[Downloads]
+[Configuration]
+[Install]
 
-# Installation - Upgrading from a GAM version other than a prior version of GAMADV-X or GAMADV-XTD
-Use these steps if you have used any version of GAM in your domain. They will update your GAM project
-and all necessary authentications.
+# Installation - Upgrading from a GAM version other than a prior
+version of GAMADV-X or GAMADV-XTD Use these steps if you have used any
+version of GAM in your domain. They will update your GAM project and
+all necessary authentications.
 
-* Configuration: https://github.com/taers232c/GAMADV-X/wiki/gam.cfg
-* Download: https://github.com/taers232c/GAMADV-X/wiki#downloads
-* Install: https://github.com/taers232c/GAMADV-X/wiki/How-to-Upgrade-from-Standard-GAM
+[Downloads]
+[Configuration]
+[Upgrade]
 
 # Installation - Upgrading from a prior version of GAMADV-X or GAMADV-XTD
 Use these steps if you already use GAMADV-X or GAMADV-XTD. The updates may tell you to update your GAM project
 or authentications because new features have been included.
 
-* Updates: https://github.com/taers232c/GAMADV-X/wiki/GAM-Updates
-* Download: https://github.com/taers232c/GAMADV-X/wiki#downloads
+[Updates]
+[Downloads]
 
 # Multiple Versions
 You can install multiple versions of GAM, GAMADV-X and GAMADV-XTD in different parallel directories.
 
+[GAM] https://github.com/jay0lee/GAM
 [GitHub Releases]: https://github.com/taers232c/GAMADV-X/releases
 [GitHub]: https://github.com/taers232c/GAMADV-X/tree/master
 [GitHub Wiki]: https://github.com/jay0lee/GAM/wiki/
 [GitHub GAMADV-X Wiki]: https://github.com/taers232c/GAMADV-X/wiki/
 [Google Groups]: http://groups.google.com/group/google-apps-manager
+[Downloads] https://github.com/taers232c/GAMADV-X/wiki#downloads
+[Configuration] https://github.com/taers232c/GAMADV-X/wiki/gam.cfg
+[Install] https://github.com/taers232c/GAMADV-X/wiki/How-to-Install-Advanced-GAM
+[Upgrade] https://github.com/taers232c/GAMADV-X/wiki/How-to-Upgrade-from-Standard-GAM
+[Updates] https://github.com/taers232c/GAMADV-X/wiki/GAM-Updates
