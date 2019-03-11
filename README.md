@@ -31,25 +31,25 @@ To run all commands properly, GAMADV-X requires three things:
 Use these steps if you have never used any version of GAM in your domain. They will create a GAM project
 and all necessary authentications.
 
-[Downloads]
-[Configuration]
-[Install]
+* [Downloads]
+* [Configuration]
+* [Install]
 
 # Installation - Upgrading from a GAM version other than a prior
 version of GAMADV-X or GAMADV-XTD Use these steps if you have used any
 version of GAM in your domain. They will update your GAM project and
 all necessary authentications.
 
-[Downloads]
-[Configuration]
-[Upgrade]
+* [Downloads]
+* [Configuration]
+* [Upgrade]
 
 # Installation - Upgrading from a prior version of GAMADV-X or GAMADV-XTD
 Use these steps if you already use GAMADV-X or GAMADV-XTD. The updates may tell you to update your GAM project
 or authentications because new features have been included.
 
-[Updates]
-[Downloads]
+* [Updates]
+* [Downloads]
 
 # Multiple Versions
 You can install multiple versions of GAM, GAMADV-X and GAMADV-XTD in different parallel directories.
