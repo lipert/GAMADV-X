@@ -62,14 +62,14 @@ or authentications because new features have been included.
 # Multiple Versions
 You can install multiple versions of GAM, GAMADV-X and GAMADV-XTD in different parallel directories.
 
-[GAM] https://github.com/jay0lee/GAM
+[GAM]: https://github.com/jay0lee/GAM
 [GitHub Releases]: https://github.com/taers232c/GAMADV-X/releases
 [GitHub]: https://github.com/taers232c/GAMADV-X/tree/master
 [GitHub Wiki]: https://github.com/jay0lee/GAM/wiki/
 [GitHub GAMADV-X Wiki]: https://github.com/taers232c/GAMADV-X/wiki/
 [Google Groups]: http://groups.google.com/group/google-apps-manager
-[Downloads] https://github.com/taers232c/GAMADV-X/wiki#downloads
-[Configuration] https://github.com/taers232c/GAMADV-X/wiki/gam.cfg
-[Install] https://github.com/taers232c/GAMADV-X/wiki/How-to-Install-Advanced-GAM
-[Upgrade] https://github.com/taers232c/GAMADV-X/wiki/How-to-Upgrade-from-Standard-GAM
-[Updates] https://github.com/taers232c/GAMADV-X/wiki/GAM-Updates
+[Downloads]: https://github.com/taers232c/GAMADV-X/wiki#downloads
+[Configuration]: https://github.com/taers232c/GAMADV-X/wiki/gam.cfg
+[Install]: https://github.com/taers232c/GAMADV-X/wiki/How-to-Install-Advanced-GAM
+[Upgrade]: https://github.com/taers232c/GAMADV-X/wiki/How-to-Upgrade-from-Standard-GAM
+[Updates]: https://github.com/taers232c/GAMADV-X/wiki/GAM-Updates
