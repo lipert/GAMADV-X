@@ -60,7 +60,7 @@ You can install multiple versions of GAM, GAMADV-X and GAMADV-XTD in different p
 [GitHub Wiki]: https://github.com/jay0lee/GAM/wiki/
 [GitHub GAMADV-X Wiki]: https://github.com/taers232c/GAMADV-X/wiki/
 [Google Groups]: http://groups.google.com/group/google-apps-manager
-[Downloads]: https://github.com/taers232c/GAMADV-X/wiki#downloads
+[Downloads]: https://github.com/taers232c/GAMADV-X/wiki/Downloads
 [Configuration]: https://github.com/taers232c/GAMADV-X/wiki/gam.cfg
 [Install]: https://github.com/taers232c/GAMADV-X/wiki/How-to-Install-Advanced-GAM
 [Upgrade]: https://github.com/taers232c/GAMADV-X/wiki/How-to-Upgrade-from-Standard-GAM
