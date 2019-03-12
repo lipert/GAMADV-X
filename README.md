@@ -35,31 +35,30 @@ and all necessary authentications.
 * [Configuration]
 * [Install]
 
-# Installation - Upgrading from a GAM version other than a prior
-version of GAMADV-X or GAMADV-XTD Use these steps if you have used any
-version of GAM in your domain. They will update your GAM project and
-all necessary authentications.
+# Installation - Upgrading from a GAM version other than a prior version of GAMADV-X or GAMADV-XTD or GAMADV-XTD3
+Use these steps if you have used any version of GAM in your domain. They will update your GAM project
+and all necessary authentications.
 
 * [Downloads]
 * [Configuration]
 * [Upgrade]
 
-# Installation - Upgrading from a prior version of GAMADV-X or GAMADV-XTD
-Use these steps if you already use GAMADV-X or GAMADV-XTD. The updates may tell you to update your GAM project
+# Installation - Upgrading from a prior version of GAMADV-X or GAMADV-XTD or GAMADV-XTD3
+Use these steps if you already use GAMADV-X or GAMADV-XTD or GAMADV-XTD3. The updates may tell you to update your GAM project
 or authentications because new features have been included.
 
 * [Updates]
 * [Downloads]
 
 # Multiple Versions
-You can install multiple versions of GAM, GAMADV-X and GAMADV-XTD in different parallel directories.
+You can install multiple versions of GAM, GAMADV-X, GAMADV-XTD and GAMADV-XTD3 in different parallel directories.
 
 [GAM]: https://github.com/jay0lee/GAM
 [GitHub Releases]: https://github.com/taers232c/GAMADV-X/releases
 [GitHub]: https://github.com/taers232c/GAMADV-X/tree/master
 [GitHub Wiki]: https://github.com/jay0lee/GAM/wiki/
 [GitHub GAMADV-X Wiki]: https://github.com/taers232c/GAMADV-X/wiki/
-[Google Groups]: http://groups.google.com/group/google-apps-manager
+[Google Groups]: https://groups.google.com/group/google-apps-manager
 [Downloads]: https://github.com/taers232c/GAMADV-X/wiki/Downloads
 [Configuration]: https://github.com/taers232c/GAMADV-X/wiki/gam.cfg
 [Install]: https://github.com/taers232c/GAMADV-X/wiki/How-to-Install-Advanced-GAM
