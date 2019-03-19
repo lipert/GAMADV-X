@@ -2585,6 +2585,9 @@ gam <UserTypeEntity> create|add drivefile [drivefilename <DriveFileName>] <Drive
         (modifieddate|modifiedtime <Time>)|
         (modifieddatebehavior frombody|frombodyifneeded|frombodyornow|nochange|now|nowifneeded)|
         usecontentasindexabletext|
+        ((parentid <DriveFolderID>)|
+         (parentname <DriveFolderName>)|
+         (anyownerparentname <DriveFolderName>))|
         ((addparents <DriveFolderIDList>)|
          (addparentname <DriveFolderName>)|
          (addanyownerparentname <DriveFolderName>))|

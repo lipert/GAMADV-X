@@ -22,7 +22,7 @@ For more information, see https://github.com/taers232c/GAMADV-X
 """
 
 __author__ = u'Ross Scroggs <ross.scroggs@gmail.com>'
-__version__ = u'4.65.77'
+__version__ = u'4.65.78'
 __license__ = u'Apache License 2.0 (http://www.apache.org/licenses/LICENSE-2.0)'
 
 import base64
@@ -26618,7 +26618,7 @@ def _getDriveFileAddRemoveParentInfo(user, i, count, parameters, drive):
       setSysExitRC(NO_ENTITIES_FOUND)
       return (False, None, None)
     removeParents.extend(parents)
-  return (True, u','.join(addParents), u','.join(removeParents))
+  return (True, addParents, removeParents)
 
 DRIVE_LABEL_CHOICE_MAP = {
   u'hidden': u'hidden',
@@ -26708,34 +26708,35 @@ def getDriveFileProperty(visibility=None):
       visibility = u'PUBLIC'
   return {u'key': key, u'value': value, u'visibility': visibility}
 
-def getDriveFileParentAttribute(myarg, parameters, updateCmd=False):
-  if not updateCmd:
-    if myarg == u'parentid':
-      parameters[DFA_PARENTID] = getString(Cmd.OB_DRIVE_FOLDER_ID)
-    elif myarg == u'parentname':
-      parameters[DFA_PARENTQUERY] = VX_MY_NON_TRASHED_FOLDER_NAME.format(getEscapedDriveFolderName())
-    elif myarg in [u'anyownerparentname', u'sharedparentname']:
-      parameters[DFA_PARENTQUERY] = VX_ANY_NON_TRASHED_FOLDER_NAME.format(getEscapedDriveFolderName())
-    else:
-      return False
+def getDriveFileParentAttribute(myarg, parameters):
+  if myarg == u'parentid':
+    parameters[DFA_PARENTID] = getString(Cmd.OB_DRIVE_FOLDER_ID)
+  elif myarg == u'parentname':
+    parameters[DFA_PARENTQUERY] = VX_MY_NON_TRASHED_FOLDER_NAME.format(getEscapedDriveFolderName())
+  elif myarg in [u'anyownerparentname', u'sharedparentname']:
+    parameters[DFA_PARENTQUERY] = VX_ANY_NON_TRASHED_FOLDER_NAME.format(getEscapedDriveFolderName())
   else:
-    if myarg in [u'addparent', u'addparents']:
-      parameters[DFA_ADD_PARENT_IDS].extend(getString(Cmd.OB_DRIVE_FOLDER_ID_LIST).replace(u',', u' ').split())
-    elif myarg in [u'removeparent', u'removeparents']:
-      parameters[DFA_REMOVE_PARENT_IDS].extend(getString(Cmd.OB_DRIVE_FOLDER_ID_LIST).replace(u',', u' ').split())
-    elif myarg == u'addparentname':
-      parameters[DFA_ADD_PARENT_NAMES].append(VX_MY_NON_TRASHED_FOLDER_NAME.format(getEscapedDriveFolderName()))
-    elif myarg == u'removeparentname':
-      parameters[DFA_REMOVE_PARENT_NAMES].append(VX_MY_NON_TRASHED_FOLDER_NAME.format(getEscapedDriveFolderName()))
-    elif myarg in [u'addanyownerparentname', u'addsharedparentname']:
-      parameters[DFA_ADD_PARENT_NAMES].append(VX_ANY_NON_TRASHED_FOLDER_NAME.format(getEscapedDriveFolderName()))
-    elif myarg in [u'removeanyownerparentname', u'removesharedparentname']:
-      parameters[DFA_REMOVE_PARENT_NAMES].append(VX_ANY_NON_TRASHED_FOLDER_NAME.format(getEscapedDriveFolderName()))
-    else:
-      return False
+    return False
   return True
 
-def getDriveFileAttribute(myarg, body, parameters, assignLocalName, updateCmd):
+def getDriveFileAddRemoveParentAttribute(myarg, parameters):
+  if myarg in [u'addparent', u'addparents']:
+    parameters[DFA_ADD_PARENT_IDS].extend(getString(Cmd.OB_DRIVE_FOLDER_ID_LIST).replace(u',', u' ').split())
+  elif myarg in [u'removeparent', u'removeparents']:
+    parameters[DFA_REMOVE_PARENT_IDS].extend(getString(Cmd.OB_DRIVE_FOLDER_ID_LIST).replace(u',', u' ').split())
+  elif myarg == u'addparentname':
+    parameters[DFA_ADD_PARENT_NAMES].append(VX_MY_NON_TRASHED_FOLDER_NAME.format(getEscapedDriveFolderName()))
+  elif myarg == u'removeparentname':
+    parameters[DFA_REMOVE_PARENT_NAMES].append(VX_MY_NON_TRASHED_FOLDER_NAME.format(getEscapedDriveFolderName()))
+  elif myarg in [u'addanyownerparentname', u'addsharedparentname']:
+    parameters[DFA_ADD_PARENT_NAMES].append(VX_ANY_NON_TRASHED_FOLDER_NAME.format(getEscapedDriveFolderName()))
+  elif myarg in [u'removeanyownerparentname', u'removesharedparentname']:
+    parameters[DFA_REMOVE_PARENT_NAMES].append(VX_ANY_NON_TRASHED_FOLDER_NAME.format(getEscapedDriveFolderName()))
+  else:
+    return False
+  return True
+
+def getDriveFileAttribute(myarg, body, parameters, assignLocalName):
   if myarg == u'localfile':
     parameters[DFA_LOCALFILEPATH] = getString(Cmd.OB_FILE_NAME)
     try:
@@ -26770,7 +26771,7 @@ def getDriveFileAttribute(myarg, body, parameters, assignLocalName, updateCmd):
     body[u'description'] = getStringWithCRsNLs()
   elif myarg == u'mimetype':
     body[u'mimeType'] = getMimeType()
-  elif getDriveFileParentAttribute(myarg, parameters, updateCmd):
+  elif getDriveFileParentAttribute(myarg, parameters):
     pass
   elif myarg == u'writerscanshare':
     body[u'writersCanShare'] = getBoolean()
@@ -28976,7 +28977,7 @@ def createDriveFile(users):
     elif myarg == u'todrive':
       todrive = getTodriveParameters()
     else:
-      getDriveFileAttribute(myarg, body, parameters, True, False)
+      getDriveFileAttribute(myarg, body, parameters, True)
   if csvFormat:
     fileNameTitle = VX_FILENAME
     titles, csvRows = initializeTitlesCSVfile([u'User', fileNameTitle, u'id'])
@@ -29052,13 +29053,17 @@ def updateDriveFile(users):
     elif myarg in [u'modifieddate', u'modifiedtime']:
       body[VX_MODIFIED_TIME] = getTimeOrDeltaFromNow()
       kwargs[u'setModifiedDate'] = True
+    elif getDriveFileAddRemoveParentAttribute(myarg, parameters):
+      pass
     else:
-      getDriveFileAttribute(myarg, body, parameters, assignLocalName, True)
+      getDriveFileAttribute(myarg, body, parameters, assignLocalName)
   i, count, users = getEntityArgument(users)
   for user in users:
     i += 1
     user, drive, jcount = _validateUserGetFileIDs(user, i, count, fileIdEntity, entityType=Ent.DRIVE_FILE_OR_FOLDER)
     if jcount == 0:
+      continue
+    if not _getDriveFileParentInfo(drive, user, i, count, body, parameters, defaultToRoot=False):
       continue
     if operation == u'update':
       if parameters[DFA_LOCALFILEPATH]:
@@ -29082,7 +29087,7 @@ def updateDriveFile(users):
                               fileId=fileId, ocr=parameters[DFA_OCR], ocrLanguage=parameters[DFA_OCRLANGUAGE],
                               pinned=parameters[DFA_KEEP_REVISION_FOREVER],
                               useContentAsIndexableText=parameters[DFA_USE_CONTENT_AS_INDEXABLE_TEXT],
-                              addParents=addParents, removeParents=removeParents,
+                              addParents=u','.join(addParents), removeParents=u','.join(removeParents),
                               media_body=media_body, body=body, fields=VX_ID_FILENAME_MIMETYPE, **kwargs)
             entityModifierNewValueActionPerformed([Ent.USER, user, Ent.DRIVE_FILE, result[VX_FILENAME]], Act.MODIFIER_WITH_CONTENT_FROM, parameters[DFA_LOCALFILENAME], j, jcount)
           else:
@@ -29091,7 +29096,7 @@ def updateDriveFile(users):
                               fileId=fileId, ocr=parameters[DFA_OCR], ocrLanguage=parameters[DFA_OCRLANGUAGE],
                               pinned=parameters[DFA_KEEP_REVISION_FOREVER],
                               useContentAsIndexableText=parameters[DFA_USE_CONTENT_AS_INDEXABLE_TEXT],
-                              addParents=addParents, removeParents=removeParents,
+                              addParents=u','.join(addParents), removeParents=u','.join(removeParents),
                               body=body, fields=VX_ID_FILENAME_MIMETYPE, **kwargs)
             entityActionPerformed([Ent.USER, user, _getEntityMimeType(result), result[VX_FILENAME]], j, jcount)
         except (GAPI.fileNotFound, GAPI.forbidden, GAPI.internalError, GAPI.insufficientFilePermissions,
