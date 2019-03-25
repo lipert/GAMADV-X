@@ -1491,7 +1491,7 @@ gam show domainaliases|aliasdomains [formatjson]
         (whocanmodifytagsandcategories (members|all_members)|owners_and_managers|managers_only|owners_only|none)|
         (whocantaketopics (members|all_members)|owners_and_managers|managers_only|owners_only|none)|
         (whocanunassigntopic (members|all_members)|owners_and_managers|managers_only|owners_only|none)|
-        (whocanunmarkfavoritereplyonanytopic (members|all_members)|owners_and_managers|managers_only|owners_only|none)|
+        (whocanunmarkfavoritereplyonanytopic (members|all_members)|owners_and_managers|managers_only|owners_only|none)
 <GroupWhoCanModerateContentAttribute> ::=
         (whocanmoderatecontent (members|all_members)|owners_and_managers|owners_only|none)|
         (whocanapprovemessages (members|all_members)|owners_and_managers|owners_only|none)|
@@ -1514,7 +1514,7 @@ gam show domainaliases|aliasdomains [formatjson]
         (maxmessagebytes <ByteCount>)|
         (messagedisplayfont default_font|fixed_width_font)|
         (whocanaddreferences (members|all_members)|owners_and_managers|managers_only|owners_only|none)|
-        (whocanmarkfavoritereplyonowntopic (members|all_members)|owners_and_managers|managers_only|owners_only|none)|
+        (whocanmarkfavoritereplyonowntopic (members|all_members)|owners_and_managers|managers_only|owners_only|none)
 <GroupAttribute> ::=
         <GroupSettingsAttribute>|
         <GroupWhoCanDiscoverGroupAttribute>|
