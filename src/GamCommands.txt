@@ -1536,6 +1536,8 @@ gam update group|groups <GroupEntity> clear [member] [manager] [owner] [notsuspe
 gam delete group|groups <GroupEntity>
 
 <GroupFieldName> ::=
+        admincreated|
+        aliases|
         allowexternalmembers|
         allowgooglecommunication|
         allowwebposting|
@@ -1545,8 +1547,11 @@ gam delete group|groups <GroupEntity>
         customrolesenabledforsettingstobemerged|
         defaultmessagedenynotificationtext|
         description|
+        directmemberscount|
+        email|
         enablecollaborativeinbox|collaborative|
         favoriterepliesontop|
+        id|
         includecustomfooter|
         includeinglobaladdresslist|
         isarchived|
