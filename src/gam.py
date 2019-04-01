@@ -13682,30 +13682,21 @@ GROUP_DISCOVER_CHOICES = {
   }
 GROUP_ASSIST_CONTENT_CHOICES = {
   u'allmembers': u'ALL_MEMBERS',
-  u'members': u'ALL_MEMBERS',
   u'ownersandmanagers': u'OWNERS_AND_MANAGERS',
-  u'managers': u'OWNERS_AND_MANAGERS',
   u'managersonly': u'MANAGERS_ONLY',
   u'ownersonly': u'OWNERS_ONLY',
-  u'owners': u'OWNERS_ONLY',
   u'none': u'NONE',
   }
 GROUP_MODERATE_CONTENT_CHOICES = {
   u'allmembers': u'ALL_MEMBERS',
-  u'members': u'ALL_MEMBERS',
   u'ownersandmanagers': u'OWNERS_AND_MANAGERS',
-  u'managers': u'OWNERS_AND_MANAGERS',
   u'ownersonly': u'OWNERS_ONLY',
-  u'owners': u'OWNERS_ONLY',
   u'none': u'NONE',
   }
 GROUP_MODERATE_MEMBERS_CHOICES = {
   u'allmembers': u'ALL_MEMBERS',
-  u'members': u'ALL_MEMBERS',
   u'ownersandmanagers': u'OWNERS_AND_MANAGERS',
-  u'managers': u'OWNERS_AND_MANAGERS',
   u'ownersonly': u'OWNERS_ONLY',
-  u'owners': u'OWNERS_ONLY',
   u'none': u'NONE',
   }
 GROUP_DEPRECATED_ATTRIBUTES = {
@@ -13752,7 +13743,7 @@ GROUP_MODERATE_MEMBERS_ATTRIBUTES = {
   u'whocanbanusers': [u'whoCanBanUsers', {GC.VAR_TYPE: GC.TYPE_CHOICE, u'choices': GROUP_MODERATE_MEMBERS_CHOICES}],
   u'whocaninvite': [u'whoCanInvite', {GC.VAR_TYPE: GC.TYPE_CHOICE,
                                       u'choices': {u'allmemberscaninvite': u'ALL_MEMBERS_CAN_INVITE', u'allmanagerscaninvite': u'ALL_MANAGERS_CAN_INVITE',
-                                                   u'allownerscaninvite': u'ALL_OWNERS_CAN_INVITE',u'nonecaninvite': u'NONE_CAN_INVITE',}}],
+                                                   u'allownerscaninvite': u'ALL_OWNERS_CAN_INVITE', u'nonecaninvite': u'NONE_CAN_INVITE',}}],
   u'whocanmodifymembers': [u'whoCanModifyMembers', {GC.VAR_TYPE: GC.TYPE_CHOICE, u'choices': GROUP_MODERATE_MEMBERS_CHOICES}],
   }
 GROUP_BASIC_ATTRIBUTES = {
