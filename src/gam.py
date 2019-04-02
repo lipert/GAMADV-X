@@ -22,7 +22,7 @@ For more information, see https://github.com/taers232c/GAMADV-X
 """
 
 __author__ = u'Ross Scroggs <ross.scroggs@gmail.com>'
-__version__ = u'4.65.87'
+__version__ = u'4.65.88'
 __license__ = u'Apache License 2.0 (http://www.apache.org/licenses/LICENSE-2.0)'
 
 import base64
@@ -221,7 +221,7 @@ NEVER_DATETIME = u'1970-01-01 00:00'
 NEVER_TIME = u'1970-01-01T00:00:00.000Z'
 NEVER_END_DATE = u'1969-12-31'
 NEVER_START_DATE = NEVER_DATE
-PROJECTION_CHOICE_MAP = {u'basic': u'BASIC', u'full': u'FULL',}
+PROJECTION_CHOICE_MAP = {u'basic': u'BASIC', u'full': u'FULL'}
 ME_IN_OWNERS = u"'me' in owners"
 ME_IN_OWNERS_AND = ME_IN_OWNERS+u" and "
 AND_ME_IN_OWNERS = u" and "+ME_IN_OWNERS
@@ -1138,7 +1138,7 @@ def getInteger(minVal=None, maxVal=None):
     invalidArgumentExit(integerLimits(minVal, maxVal))
   missingArgumentExit(integerLimits(minVal, maxVal))
 
-SORTORDER_CHOICE_MAP = {u'ascending': u'ASCENDING', u'descending': u'DESCENDING',}
+SORTORDER_CHOICE_MAP = {u'ascending': u'ASCENDING', u'descending': u'DESCENDING'}
 
 def initOrderBy():
   return {u'items': [], u'list': None}
@@ -1494,7 +1494,7 @@ def getAgeTime():
     invalidArgumentExit(AGE_TIME_FORMAT_REQUIRED)
   missingArgumentExit(AGE_TIME_FORMAT_REQUIRED)
 
-CALENDAR_REMINDER_METHODS = [u'email', u'sms', u'popup',]
+CALENDAR_REMINDER_METHODS = [u'email', u'sms', u'popup']
 CALENDAR_REMINDER_MAX_MINUTES = 40320
 
 def getCalendarReminder(allowClearNone=False):
@@ -1528,19 +1528,29 @@ def getDelimiter():
     return None
   return getCharacter()
 
+def deleteJSONfields(jsonData, deleteFields):
+  for field in deleteFields:
+    jsonData.pop(field, None)
+  return jsonData
+
 def getJSON(deleteFields):
-  encoding = getCharSet()
-  if Cmd.ArgumentsRemaining():
-    argstr = Cmd.Current()
+  if not checkArgumentPresent(u'file'):
+    encoding = getCharSet()
+    if Cmd.ArgumentsRemaining():
+      argstr = Cmd.Current()
+      try:
+        Cmd.Advance()
+        return deleteJSONfields(json.loads(argstr, encoding=encoding), deleteFields)
+      except (TypeError, ValueError) as e:
+        usageErrorExit(str(e))
+    missingArgumentExit(Cmd.OB_JSON_DATA)
+  else:
+    filename = getString(Cmd.OB_FILE_NAME)
+    encoding = getCharSet()
     try:
-      jsonData = json.loads(argstr, encoding=encoding)
-      for field in deleteFields:
-        jsonData.pop(field, None)
-      Cmd.Advance()
-      return jsonData
+      return deleteJSONfields(json.loads(readFile(filename), encoding=encoding), deleteFields)
     except (TypeError, ValueError) as e:
       usageErrorExit(str(e))
-  missingArgumentExit(Cmd.OB_JSON_DATA)
 
 def getMatchSkipFields(fieldNames):
   matchFields = {}
@@ -4154,7 +4164,7 @@ def splitEntityList(entity, dataDelimiter, shlexSplit):
   if not entity:
     return []
   if not dataDelimiter:
-    return [entity,]
+    return [entity]
   if not shlexSplit:
     return entity.split(dataDelimiter)
   return shlexSplitList(entity, dataDelimiter)
@@ -5506,7 +5516,7 @@ def threadBatchWorker():
 def ThreadBatchGAMCommands(items, logCmds):
   if not items:
     return
-  pythonCmd = [sys.executable.lower(),]
+  pythonCmd = [sys.executable.lower()]
   if not getattr(sys, u'frozen', False): # we're not frozen
     pythonCmd.append(os.path.realpath(Cmd.Argument(0)))
   numWorkerThreads = min(len(items), GC.Values[GC.NUM_TBATCH_THREADS])
@@ -5698,7 +5708,7 @@ def doCSV():
   checkArgumentPresent(Cmd.GAM_CMD, required=True)
   if not Cmd.ArgumentsRemaining():
     missingArgumentExit(Cmd.OB_GAM_ARGUMENT_LIST)
-  GAM_argv, subFields = getSubFields([Cmd.GAM_CMD,], csvFile.fieldnames)
+  GAM_argv, subFields = getSubFields([Cmd.GAM_CMD], csvFile.fieldnames)
   items = []
   for row in csvFile:
     if checkMatchSkipFields(row, matchFields, skipFields):
@@ -6169,10 +6179,10 @@ def enableGAMProjectAPIs(httpObj, projectId, checkEnabled, i=0, count=0):
         j += 1
         if u'serviceName' in service:
           if service[u'serviceName'] in apis:
-            printEntityKVList([Ent.API, service[u'serviceName']], [u'Already enabled',], j, jcount)
+            printEntityKVList([Ent.API, service[u'serviceName']], [u'Already enabled'], j, jcount)
             apis.remove(service[u'serviceName'])
           else:
-            printEntityKVList([Ent.API, service[u'serviceName']], [u'Already enabled (non-GAM which is fine)',], j, jcount)
+            printEntityKVList([Ent.API, service[u'serviceName']], [u'Already enabled (non-GAM which is fine)'], j, jcount)
       Ind.Decrement()
     except GAPI.notFound as e:
       entityActionFailedWarning([Ent.PROJECT, projectId], str(e), i, count)
@@ -6540,11 +6550,11 @@ def doPrintShowProjects():
       addTitlesToCSVfile([u'projectId', u'projectNumber', u'name', u'createTime', u'lifecycleState'], titles)
       sortTitles = titles[u'list'][:]
       for project in projects:
-        addRowTitlesToCSVfile(flattenJSON(project, flattened={u'User': login_hint}, timeObjects=[u'createTime',]), csvRows, titles)
+        addRowTitlesToCSVfile(flattenJSON(project, flattened={u'User': login_hint}, timeObjects=[u'createTime']), csvRows, titles)
     else:
       sortTitles = None
       for project in projects:
-        csvRows.append({u'User': login_hint, u'JSON': json.dumps(cleanJSON(project, timeObjects=[u'createTime',]), ensure_ascii=False, sort_keys=True)})
+        csvRows.append({u'User': login_hint, u'JSON': json.dumps(cleanJSON(project, timeObjects=[u'createTime']), ensure_ascii=False, sort_keys=True)})
     writeCSVfile(csvRows, titles, u'Projects', todrive, sortTitles, quotechar=FJQC.quoteChar)
 
 # gam whatis <EmailItem> [noinfo]
@@ -6620,7 +6630,7 @@ def _adjustTryDate(errMsg, noDateChange):
 
 NL_SPACES_PATTERN = re.compile(r'\n +')
 
-REPORTS_PARAMETERS_SIMPLE_TYPES = [u'intValue', u'boolValue', u'datetimeValue', u'stringValue',]
+REPORTS_PARAMETERS_SIMPLE_TYPES = [u'intValue', u'boolValue', u'datetimeValue', u'stringValue']
 
 REPORT_CHOICE_MAP = {
   u'admin': u'admin',
@@ -6674,7 +6684,7 @@ USER_REPORT_SERVICES = [
   u'gplus',
   ]
 
-REPORT_ACTIVITIES_TIME_OBJECTS = set([u'time',])
+REPORT_ACTIVITIES_TIME_OBJECTS = set([u'time'])
 
 # gam report <ActivityApplictionName> [todrive <ToDriveAttributes>*]
 #	[user all|<UserItem>] [select <UserTypeEntity>]
@@ -6995,7 +7005,7 @@ def doReport():
     if not aggregateUserUsage:
       sortTitles = [u'email', u'date']
     else:
-      sortTitles = [u'date',]
+      sortTitles = [u'date']
     titles, csvRows = initializeTitlesCSVfile(sortTitles)
     i = 0
     count = len(users)
@@ -7185,7 +7195,7 @@ def doReport():
               eventCounts.setdefault(event[u'name'], 0)
               eventCounts[event[u'name']] += 1
     if not countsOnly:
-      sortCSVTitles([u'name',], titles)
+      sortCSVTitles([u'name'], titles)
     elif not summary:
       addTitlesToCSVfile(u'emailAddress', titles)
       for actor, events in iteritems(eventCounts):
@@ -7193,7 +7203,7 @@ def doReport():
         for event, count in iteritems(events):
           row[event] = count
         addRowTitlesToCSVfile(row, csvRows, titles)
-      sortCSVTitles([u'emailAddress',], titles)
+      sortCSVTitles([u'emailAddress'], titles)
     else:
       addTitlesToCSVfile([u'event', u'count'], titles)
       for event in sorted(eventCounts):
@@ -7993,9 +8003,9 @@ def doDeleteDomainAlias():
   except (GAPI.badRequest, GAPI.notFound, GAPI.forbidden):
     accessErrorExit(cd)
 
-DOMAIN_TIME_OBJECTS = set([u'creationTime',])
-DOMAIN_ALIAS_PRINT_ORDER = [u'parentDomainName', u'creationTime', u'verified',]
-DOMAIN_ALIAS_SKIP_OBJECTS = set([u'domainAliasName',])
+DOMAIN_TIME_OBJECTS = set([u'creationTime'])
+DOMAIN_ALIAS_PRINT_ORDER = [u'parentDomainName', u'creationTime', u'verified']
+DOMAIN_ALIAS_SKIP_OBJECTS = set([u'domainAliasName'])
 
 def _showDomainAlias(alias, FJQC, aliasSkipObjects, i=0, count=0):
   if FJQC.formatJSON:
@@ -8173,7 +8183,7 @@ def _showCustomerLicenseInfo(customerInfo, FJQC):
   else:
     printWarningMessage(DATA_NOT_AVALIABLE_RC, Msg.NO_USER_COUNTS_DATA_AVAILABLE)
 
-CUSTOMER_TIME_OBJECTS = set([u'customerCreationTime',])
+CUSTOMER_TIME_OBJECTS = set([u'customerCreationTime'])
 
 # gam info customer [formatjson]
 def doInfoCustomer(returnCustomerInfo=None, FJQC=None):
@@ -8247,7 +8257,7 @@ def doInfoInstance():
   if FJQC.formatJSON:
     printLine(json.dumps(cleanJSON(customerInfo, timeObjects=CUSTOMER_TIME_OBJECTS), ensure_ascii=False, sort_keys=True))
 
-DOMAIN_PRINT_ORDER = [u'customerDomain', u'creationTime', u'isPrimary', u'verified',]
+DOMAIN_PRINT_ORDER = [u'customerDomain', u'creationTime', u'isPrimary', u'verified']
 DOMAIN_SKIP_OBJECTS = set([u'domainName', u'domainAliases'])
 
 def _showDomain(result, FJQC, i=0, count=0):
@@ -8656,8 +8666,8 @@ def _validateTransferAppName(apps, appName):
   invalidChoiceExit(appNameList, True)
 
 PRIVACY_LEVEL_CHOICE_MAP = {
-  u'private': [u'PRIVATE',],
-  u'shared': [u'SHARED',],
+  u'private': [u'PRIVATE'],
+  u'shared': [u'SHARED'],
   u'all': [u'PRIVATE', u'SHARED'],
   }
 
@@ -8703,7 +8713,7 @@ def doCreateDataTransfer():
       _assignAppParameter(u'PRIVACY_LEVEL', PRIVACY_LEVEL_CHOICE_MAP[myarg])
     elif myarg == u'releaseresources':
       if getBoolean():
-        _assignAppParameter(u'RELEASE_RESOURCES', [u'TRUE',])
+        _assignAppParameter(u'RELEASE_RESOURCES', [u'TRUE'])
     else:
       _assignAppParameter(Cmd.Previous().upper(), getString(Cmd.OB_PARAMETER_VALUE).upper().split(u','), True)
   result = callGAPI(dt.transfers(), u'insert',
@@ -8822,7 +8832,7 @@ def doPrintShowDataTransfers():
         xrow[u'status'] = app[u'applicationTransferStatus']
         for param in app.get(u'applicationTransferParams', []):
           key = param[u'key']
-          xrow[key] = delimiter.join(param.get(u'value', [] if key != u'RELEASE_RESOURCES' else [u'TRUE',]))
+          xrow[key] = delimiter.join(param.get(u'value', [] if key != u'RELEASE_RESOURCES' else [u'TRUE']))
         addRowTitlesToCSVfile(xrow, csvRows, titles)
   if csvFormat:
     writeCSVfile(csvRows, titles, u'Data Transfers', todrive,
@@ -9089,7 +9099,7 @@ def _doUpdateOrgs(entityList):
         _batchMoveUsersToOrgUnit(cd, orgUnitPath, i, count, items)
       else:
         _batchMoveCrOSesToOrgUnit(cd, orgUnitPath, i, count, items, quickCrOSMove)
-  elif checkArgumentPresent([u'sync',]):
+  elif checkArgumentPresent([u'sync']):
     entityType, syncMembers = getEntityToModify(defaultEntityType=Cmd.ENTITY_USERS, crosAllowed=True)
     orgItemLists = syncMembers if isinstance(syncMembers, dict) else None
     if orgItemLists is None:
@@ -9608,7 +9618,7 @@ def doShowOrgTree():
 
   cd = buildGAPIObject(API.DIRECTORY)
   orgUnitPath = u'/'
-  fieldsList = [u'orgUnitPath',]
+  fieldsList = [u'orgUnitPath']
   listType = u'all'
   batchSubOrgs = False
   while Cmd.ArgumentsRemaining():
@@ -9629,7 +9639,7 @@ def doShowOrgTree():
   for org in sorted(orgTree):
     printOrgUnit(org, orgTree)
 
-ALIAS_TARGET_TYPES = [u'user', u'group', u'target',]
+ALIAS_TARGET_TYPES = [u'user', u'group', u'target']
 
 def _doCreateUpdateAliases(doUpdate):
   cd = buildGAPIObject(API.DIRECTORY)
@@ -10320,9 +10330,9 @@ class ContactsManager(object):
     u'updated': CONTACT_UPDATED,
     }
 
-  GENDER_CHOICE_MAP = {u'male': u'male', u'female': u'female',}
+  GENDER_CHOICE_MAP = {u'male': u'male', u'female': u'female'}
 
-  PRIORITY_CHOICE_MAP = {u'low': u'low', u'normal': u'normal', u'high': u'high',}
+  PRIORITY_CHOICE_MAP = {u'low': u'low', u'normal': u'normal', u'high': u'high'}
 
   SENSITIVITY_CHOICE_MAP = {
     u'confidential': u'confidential',
@@ -10743,7 +10753,7 @@ class ContactsManager(object):
     while Cmd.ArgumentsRemaining():
       fieldName = getChoice(ContactsManager.CONTACT_ARGUMENT_TO_PROPERTY_MAP, mapChoice=True)
       if fieldName == CONTACT_JSON:
-        fields.update(getJSON([u'ContactID',]))
+        fields.update(getJSON([u'ContactID']))
       elif fieldName == CONTACT_BIRTHDAY:
         fields[fieldName] = getYYYYMMDD(minLen=0)
       elif fieldName == CONTACT_GENDER:
@@ -11153,7 +11163,7 @@ class ContactsManager(object):
     while Cmd.ArgumentsRemaining():
       fieldName = getChoice(ContactsManager.CONTACT_GROUP_ARGUMENT_TO_PROPERTY_MAP, mapChoice=True)
       if fieldName == CONTACT_JSON:
-        fields.update(getJSON([u'ContactGroupID',]))
+        fields.update(getJSON([u'ContactGroupID']))
       elif fieldName == CONTACT_GROUP_NAME:
         fields[fieldName] = getString(Cmd.OB_STRING)
       else:
@@ -11187,8 +11197,8 @@ class ContactsManager(object):
       fields[CONTACT_GROUP_NAME] = u'Deleted'
     return fields
 
-CONTACTS_PROJECTION_CHOICE_MAP = {u'basic': u'thin', u'thin': u'thin', u'full': u'full',}
-CONTACTS_ORDERBY_CHOICE_MAP = {u'lastmodified': u'lastmodified',}
+CONTACTS_PROJECTION_CHOICE_MAP = {u'basic': u'thin', u'thin': u'thin', u'full': u'full'}
+CONTACTS_ORDERBY_CHOICE_MAP = {u'lastmodified': u'lastmodified'}
 
 def normalizeContactId(contactId):
   if contactId.startswith(u'id:'):
@@ -12476,8 +12486,8 @@ def doUpdateCrOSDevices():
   updateCrOSDevices(getCrOSDeviceEntity())
 
 # From https://www.chromium.org/chromium-os/tpm_firmware_update
-CROS_TPM_VULN_VERSIONS = [u'41f', u'420', u'628', u'8520',]
-CROS_TPM_FIXED_VERSIONS = [u'422', u'62b', u'8521',]
+CROS_TPM_VULN_VERSIONS = [u'41f', u'420', u'628', u'8520']
+CROS_TPM_FIXED_VERSIONS = [u'422', u'62b', u'8521']
 
 def _checkTPMVulnerability(cros):
   if u'tpmVersionInfo' in cros and u'firmwareVersion' in cros[u'tpmVersionInfo']:
@@ -12625,11 +12635,11 @@ def infoCrOSDevices(entityList):
         fieldsList = CROS_BASIC_FIELDS_LIST[:]
     elif myarg in CROS_FIELDS_CHOICE_MAP:
       if not fieldsList:
-        fieldsList = [u'deviceId',]
+        fieldsList = [u'deviceId']
       addFieldToFieldsList(myarg, CROS_FIELDS_CHOICE_MAP, fieldsList)
     elif myarg == u'fields':
       if not fieldsList:
-        fieldsList = [u'deviceId',]
+        fieldsList = [u'deviceId']
       for field in _getFieldsList():
         if field in CROS_FIELDS_CHOICE_MAP:
           addFieldToFieldsList(field, CROS_FIELDS_CHOICE_MAP, fieldsList)
@@ -13183,9 +13193,9 @@ def doPrintCrOSDevices(entityList=None):
         _printCrOS({u'deviceId': cros})
   if sortRows and orderBy and orderBy in titles[u'set']:
     csvRows.sort(key=lambda k: k[orderBy], reverse=sortOrder == u'DESCENDING')
-  writeCSVfile(csvRows, titles, u'CrOS', todrive, [u'deviceId',] if sortHeaders else None, FJQC.quoteChar)
+  writeCSVfile(csvRows, titles, u'CrOS', todrive, [u'deviceId'] if sortHeaders else None, FJQC.quoteChar)
 
-CROS_ACTIVITY_TIME_OBJECTS = set([u'createTime',])
+CROS_ACTIVITY_TIME_OBJECTS = set([u'createTime'])
 
 # gam print crosactivity [todrive <ToDriveAttributes>*]
 #	[(query <QueryCrOS>)|(queries <QueryCrOSList>)|(select <CrOSTypeEntity>)] [limittoou <OrgUnitItem>]
@@ -13704,7 +13714,7 @@ GROUP_DEPRECATED_ATTRIBUTES = {
   u'favoriterepliesontop': [u'favoriteRepliesOnTop', {GC.VAR_TYPE: GC.TYPE_BOOLEAN}],
   u'maxmessagebytes': [u'maxMessageBytes', {GC.VAR_TYPE: GC.TYPE_INTEGER, GC.VAR_LIMITS: (ONE_KILO_BYTES, ONE_MEGA_BYTES)}],
   u'messagedisplayfont': [u'messageDisplayFont', {GC.VAR_TYPE: GC.TYPE_CHOICE,
-                                                  u'choices': {u'defaultfont': u'DEFAULT_FONT', u'fixedwidthfont': u'FIXED_WIDTH_FONT',}}],
+                                                  u'choices': {u'defaultfont': u'DEFAULT_FONT', u'fixedwidthfont': u'FIXED_WIDTH_FONT'}}],
   u'whocanaddreferences': [u'whoCanAddReferences', {GC.VAR_TYPE: GC.TYPE_CHOICE, u'choices': GROUP_ASSIST_CONTENT_CHOICES}],
   u'whocanmarkfavoritereplyonowntopic': [u'whoCanMarkFavoriteReplyOnOwnTopic', {GC.VAR_TYPE: GC.TYPE_CHOICE, u'choices': GROUP_ASSIST_CONTENT_CHOICES}],
   }
@@ -13736,14 +13746,14 @@ GROUP_MODERATE_CONTENT_ATTRIBUTES = {
 GROUP_MODERATE_MEMBERS_ATTRIBUTES = {
   u'whocanadd': [u'whoCanAdd', {GC.VAR_TYPE: GC.TYPE_CHOICE,
                                 u'choices': {u'allmanagerscanadd': u'ALL_MANAGERS_CAN_ADD', u'allownerscanadd': u'ALL_OWNERS_CAN_ADD',
-                                             u'allmemberscanadd': u'ALL_MEMBERS_CAN_ADD', u'nonecanadd': u'NONE_CAN_ADD',}}],
+                                             u'allmemberscanadd': u'ALL_MEMBERS_CAN_ADD', u'nonecanadd': u'NONE_CAN_ADD'}}],
   u'whocanapprovemembers': [u'whoCanApproveMembers', {GC.VAR_TYPE: GC.TYPE_CHOICE,
                                                       u'choices': {u'allownerscanapprove': u'ALL_OWNERS_CAN_APPROVE', u'allmanagerscanapprove': u'ALL_MANAGERS_CAN_APPROVE',
-                                                                   u'allmemberscanapprove': u'ALL_MEMBERS_CAN_APPROVE', u'nonecanapprove': u'NONE_CAN_APPROVE',}}],
+                                                                   u'allmemberscanapprove': u'ALL_MEMBERS_CAN_APPROVE', u'nonecanapprove': u'NONE_CAN_APPROVE'}}],
   u'whocanbanusers': [u'whoCanBanUsers', {GC.VAR_TYPE: GC.TYPE_CHOICE, u'choices': GROUP_MODERATE_MEMBERS_CHOICES}],
   u'whocaninvite': [u'whoCanInvite', {GC.VAR_TYPE: GC.TYPE_CHOICE,
                                       u'choices': {u'allmemberscaninvite': u'ALL_MEMBERS_CAN_INVITE', u'allmanagerscaninvite': u'ALL_MANAGERS_CAN_INVITE',
-                                                   u'allownerscaninvite': u'ALL_OWNERS_CAN_INVITE', u'nonecaninvite': u'NONE_CAN_INVITE',}}],
+                                                   u'allownerscaninvite': u'ALL_OWNERS_CAN_INVITE', u'nonecaninvite': u'NONE_CAN_INVITE'}}],
   u'whocanmodifymembers': [u'whoCanModifyMembers', {GC.VAR_TYPE: GC.TYPE_CHOICE, u'choices': GROUP_MODERATE_MEMBERS_CHOICES}],
   }
 GROUP_BASIC_ATTRIBUTES = {
@@ -13765,34 +13775,34 @@ GROUP_SETTINGS_ATTRIBUTES = {
   u'memberscanpostasthegroup': [u'membersCanPostAsTheGroup', {GC.VAR_TYPE: GC.TYPE_BOOLEAN}],
   u'messagemoderationlevel': [u'messageModerationLevel', {GC.VAR_TYPE: GC.TYPE_CHOICE,
                                                           u'choices': {u'moderateallmessages': u'MODERATE_ALL_MESSAGES', u'moderatenonmembers': u'MODERATE_NON_MEMBERS',
-                                                                       u'moderatenewmembers': u'MODERATE_NEW_MEMBERS', u'moderatenone': u'MODERATE_NONE',}}],
+                                                                       u'moderatenewmembers': u'MODERATE_NEW_MEMBERS', u'moderatenone': u'MODERATE_NONE'}}],
   u'primarylanguage': [u'primaryLanguage', {GC.VAR_TYPE: GC.TYPE_LANGUAGE}],
   u'replyto': [u'replyTo', {GC.VAR_TYPE: GC.TYPE_CHOICE,
                             u'choices': {u'replytocustom': u'REPLY_TO_CUSTOM', u'replytosender': u'REPLY_TO_SENDER', u'replytolist': u'REPLY_TO_LIST',
-                                         u'replytoowner': u'REPLY_TO_OWNER', u'replytoignore': u'REPLY_TO_IGNORE', u'replytomanagers': u'REPLY_TO_MANAGERS',}}],
+                                         u'replytoowner': u'REPLY_TO_OWNER', u'replytoignore': u'REPLY_TO_IGNORE', u'replytomanagers': u'REPLY_TO_MANAGERS'}}],
   u'sendmessagedenynotification': [u'sendMessageDenyNotification', {GC.VAR_TYPE: GC.TYPE_BOOLEAN}],
   u'spammoderationlevel': [u'spamModerationLevel', {GC.VAR_TYPE: GC.TYPE_CHOICE,
-                                                    u'choices': {u'allow': u'ALLOW', u'moderate': u'MODERATE', u'silentlymoderate': u'SILENTLY_MODERATE', u'reject': u'REJECT',}}],
+                                                    u'choices': {u'allow': u'ALLOW', u'moderate': u'MODERATE', u'silentlymoderate': u'SILENTLY_MODERATE', u'reject': u'REJECT'}}],
   u'whocancontactowner': [u'whoCanContactOwner', {GC.VAR_TYPE: GC.TYPE_CHOICE,
                                                   u'choices': {u'anyonecancontact': u'ANYONE_CAN_CONTACT', u'allindomaincancontact': u'ALL_IN_DOMAIN_CAN_CONTACT',
-                                                               u'allmemberscancontact': u'ALL_MEMBERS_CAN_CONTACT', u'allmanagerscancontact': u'ALL_MANAGERS_CAN_CONTACT',}}],
+                                                               u'allmemberscancontact': u'ALL_MEMBERS_CAN_CONTACT', u'allmanagerscancontact': u'ALL_MANAGERS_CAN_CONTACT'}}],
   u'whocanjoin': [u'whoCanJoin', {GC.VAR_TYPE: GC.TYPE_CHOICE,
                                   u'choices': {u'anyonecanjoin': u'ANYONE_CAN_JOIN', u'allindomaincanjoin': u'ALL_IN_DOMAIN_CAN_JOIN',
-                                               u'invitedcanjoin': u'INVITED_CAN_JOIN', u'canrequesttojoin': u'CAN_REQUEST_TO_JOIN',}}],
+                                               u'invitedcanjoin': u'INVITED_CAN_JOIN', u'canrequesttojoin': u'CAN_REQUEST_TO_JOIN'}}],
   u'whocanleavegroup': [u'whoCanLeaveGroup', {GC.VAR_TYPE: GC.TYPE_CHOICE,
                                               u'choices': {u'allmanagerscanleave': u'ALL_MANAGERS_CAN_LEAVE', u'allownerscanleave': u'ALL_OWNERS_CAN_LEAVE',
-                                                           u'allmemberscanleave': u'ALL_MEMBERS_CAN_LEAVE', u'nonecanleave': u'NONE_CAN_LEAVE',}}],
+                                                           u'allmemberscanleave': u'ALL_MEMBERS_CAN_LEAVE', u'nonecanleave': u'NONE_CAN_LEAVE'}}],
   u'whocanpostmessage': [u'whoCanPostMessage', {GC.VAR_TYPE: GC.TYPE_CHOICE,
                                                 u'choices': {u'nonecanpost': u'NONE_CAN_POST', u'allmanagerscanpost': u'ALL_MANAGERS_CAN_POST',
                                                              u'allmemberscanpost': u'ALL_MEMBERS_CAN_POST', u'allownerscanpost': u'ALL_OWNERS_CAN_POST',
-                                                             u'allindomaincanpost': u'ALL_IN_DOMAIN_CAN_POST', u'anyonecanpost': u'ANYONE_CAN_POST',}}],
+                                                             u'allindomaincanpost': u'ALL_IN_DOMAIN_CAN_POST', u'anyonecanpost': u'ANYONE_CAN_POST'}}],
   u'whocanviewgroup': [u'whoCanViewGroup', {GC.VAR_TYPE: GC.TYPE_CHOICE,
                                             u'choices': {u'anyonecanview': u'ANYONE_CAN_VIEW', u'allindomaincanview': u'ALL_IN_DOMAIN_CAN_VIEW',
                                                          u'allmemberscanview': u'ALL_MEMBERS_CAN_VIEW', u'allmanagerscanview': u'ALL_MANAGERS_CAN_VIEW',
-                                                         u'allownerscanview': u'ALL_OWNERS_CAN_VIEW',}}],
+                                                         u'allownerscanview': u'ALL_OWNERS_CAN_VIEW'}}],
   u'whocanviewmembership': [u'whoCanViewMembership', {GC.VAR_TYPE: GC.TYPE_CHOICE,
                                                       u'choices': {u'allindomaincanview': u'ALL_IN_DOMAIN_CAN_VIEW', u'allmemberscanview': u'ALL_MEMBERS_CAN_VIEW',
-                                                                   u'allmanagerscanview': u'ALL_MANAGERS_CAN_VIEW', u'allownerscanview': u'ALL_OWNERS_CAN_VIEW',}}],
+                                                                   u'allmanagerscanview': u'ALL_MANAGERS_CAN_VIEW', u'allownerscanview': u'ALL_OWNERS_CAN_VIEW'}}],
   }
 GROUP_ALIAS_ATTRIBUTES = {
   u'collaborative': [u'enableCollaborativeInbox', {GC.VAR_TYPE: GC.TYPE_BOOLEAN}],
@@ -13913,6 +13923,8 @@ def checkReplyToCustom(group, settings, i=0, count=0):
   entityActionNotPerformedWarning([Ent.GROUP, group], Msg.REPLY_TO_CUSTOM_REQUIRES_EMAIL_ADDRESS, i, count)
   return False
 
+GROUP_JSON_SKIP_FIELDS = [u'email', u'adminCreated', u'directMembersCount', u'members', u'aliases', u'nonEditableAliases']
+
 # gam create group <EmailAddress> [copyfrom <GroupItem>] <GroupAttributes>
 def doCreateGroup():
   cd = buildGAPIObject(API.DIRECTORY)
@@ -13923,6 +13935,8 @@ def doCreateGroup():
     myarg = getArgument()
     if myarg == u'getbeforeupdate':
       getBeforeUpdate = True
+    elif myarg == u'json':
+      gs_body.update(getJSON(GROUP_JSON_SKIP_FIELDS))
     else:
       getGroupAttrValue(myarg, gs_body)
   gs_body.setdefault(u'name', body[u'email'])
@@ -13953,6 +13967,8 @@ def doCreateGroup():
           GAPI.backendError, GAPI.invalid, GAPI.invalidAttributeValue, GAPI.invalidInput, GAPI.badRequest, GAPI.permissionDenied,
           GAPI.systemError, GAPI.serviceLimit) as e:
     entityActionFailedWarning([Ent.GROUP, body[u'email']], str(e))
+  except GAPI.required:
+    entityActionFailedWarning([Ent.GROUP, body[u'email']], Msg.INVALID_JSON_SETTING)
 
 def checkGroupExists(cd, group, i=0, count=0):
   group = normalizeEmailAddressOrUID(group)
@@ -14325,6 +14341,8 @@ def doUpdateGroups():
         body[u'adminCreated'] = getBoolean()
       elif myarg == u'getbeforeupdate':
         getBeforeUpdate = True
+      elif myarg == u'json':
+        gs_body.update(getJSON(GROUP_JSON_SKIP_FIELDS))
       else:
         getGroupAttrValue(myarg, gs_body)
     if gs_body:
@@ -14377,6 +14395,9 @@ def doUpdateGroups():
                 GAPI.backendError, GAPI.invalid, GAPI.invalidAttributeValue, GAPI.invalidInput, GAPI.badRequest, GAPI.permissionDenied,
                 GAPI.systemError, GAPI.serviceLimit) as e:
           entityActionFailedWarning([Ent.GROUP, group], str(e), i, count)
+          continue
+        except GAPI.required:
+          entityActionFailedWarning([Ent.GROUP, group], Msg.INVALID_JSON_SETTING, i, count)
           continue
       entityActionPerformed([Ent.GROUP, group], i, count)
   elif CL_subCommand in [u'create', u'add']:
@@ -14539,12 +14560,12 @@ GROUP_FIELDS_CHOICE_MAP = {
   u'name': u'name',
   }
 GROUP_BASIC_INFO_PRINT_ORDER = [u'id', u'name', u'description', u'directMembersCount', u'adminCreated']
-INFO_GROUP_OPTIONS = [u'nousers', u'groups',]
+INFO_GROUP_OPTIONS = [u'nousers', u'groups']
 
 def infoGroups(entityList):
   def initGroupFieldsLists():
     if not groupFieldsLists[u'cd']:
-      groupFieldsLists[u'cd'] = [u'email',]
+      groupFieldsLists[u'cd'] = [u'email']
     if not groupFieldsLists[u'gs']:
       groupFieldsLists[u'gs'] = []
 
@@ -15003,7 +15024,7 @@ def doPrintGroups():
   FJQC = FormatJSONQuoteChar()
   todrive = {}
   maxResults = None
-  groupFieldsLists = {u'cd': [u'email',], u'gs': []}
+  groupFieldsLists = {u'cd': [u'email'], u'gs': []}
   titles, csvRows = initializeTitlesCSVfile(groupFieldsLists[u'cd'])
   rolesSet = set()
   entitySelection = isSuspended = None
@@ -15224,7 +15245,7 @@ def doPrintGroups():
     gsbatch.execute()
   _writeCompleteRows()
   if sortHeaders:
-    sortTitles = [u'email',]+GROUP_BASIC_INFO_PRINT_ORDER+[u'aliases', u'nonEditableAliases']
+    sortTitles = [u'email']+GROUP_BASIC_INFO_PRINT_ORDER+[u'aliases', u'nonEditableAliases']
     if getSettings:
       sortTitles += sorted([attr[0] for attr in itervalues(GROUP_SETTINGS_ATTRIBUTES)])
       for key in GROUP_MERGED_ATTRIBUTES_PRINT_ORDER:
@@ -15417,7 +15438,7 @@ def doPrintGroupMembers():
   fieldsList = []
   titles, csvRows = initializeTitlesCSVfile(u'group')
   entityList = None
-  cdfieldsList = [u'email',]
+  cdfieldsList = [u'email']
   userFieldsList = []
   rolesSet = set()
   matchPatterns = {}
@@ -15506,7 +15527,7 @@ def doPrintGroupMembers():
   if u'group' in fieldsList:
     fieldsList.remove(u'group')
   if not groupColumn:
-    removeTitlesFromCSVfile([u'group',], titles)
+    removeTitlesFromCSVfile([u'group'], titles)
   if userFieldsList:
     if not memberOptions[MEMBEROPTION_MEMBERNAMES] and u'name.fullName' in userFieldsList:
       memberOptions[MEMBEROPTION_MEMBERNAMES] = True
@@ -15630,7 +15651,7 @@ def doShowGroupMembers():
   customerKey = GC.Values[GC.CUSTOMER_ID]
   kwargs = {u'customer': customerKey}
   entityList = None
-  cdfieldsList = [u'email',]
+  cdfieldsList = [u'email']
   rolesSet = set()
   memberOptions = _initMemberOptions()
   matchPatterns = {}
@@ -15817,7 +15838,7 @@ def doShowLicenses():
     printEntityKVList(u_license[:-2], [Ent.Plural(u_license[-2]), u_license[-1]])
 
 # Notification commands utilities
-READ_UNREAD_CHOICES = [u'read', u'unread',]
+READ_UNREAD_CHOICES = [u'read', u'unread']
 
 def getNotificationParameters(function):
   cd = buildGAPIObject(API.DIRECTORY)
@@ -16000,7 +16021,7 @@ def doCreateBuilding():
   cd = buildGAPIObject(API.DIRECTORY)
   body = _getBuildingAttributes({u'buildingId': unicode(uuid.uuid4()),
                                  u'buildingName': getString(Cmd.OB_NAME, maxLen=100),
-                                 u'floorNames': [u'1',]})
+                                 u'floorNames': [u'1']})
   try:
     callGAPI(cd.resources().buildings(), u'insert',
              throw_reasons=[GAPI.DUPLICATE, GAPI.INVALID_INPUT, GAPI.BAD_REQUEST, GAPI.NOT_FOUND, GAPI.FORBIDDEN],
@@ -16203,7 +16224,7 @@ def doPrintShowBuildings():
         building[u'floorNames'] = delimiter.join(building[u'floorNames'])
       addRowTitlesToCSVfile(flattenJSON(building), csvRows, titles)
   if csvFormat:
-    writeCSVfile(csvRows, titles, u'Buildings', todrive, [u'buildingId',])
+    writeCSVfile(csvRows, titles, u'Buildings', todrive, [u'buildingId'])
 
 def _getFeatureAttributes(body):
   while Cmd.ArgumentsRemaining():
@@ -16439,7 +16460,7 @@ def _getResourceACLsCalSettings(cal, resource, getCalSettings, getCalPermissions
     entityUnknownWarning(Ent.RESOURCE_CALENDAR, calId, i, count)
   return (False, None)
 
-RESOURCE_DFLT_FIELDS = [u'resourceId', u'resourceName', u'resourceEmail', u'resourceDescription', u'resourceType',]
+RESOURCE_DFLT_FIELDS = [u'resourceId', u'resourceName', u'resourceEmail', u'resourceDescription', u'resourceType']
 RESOURCE_ADDTL_FIELDS = [
   u'buildingId',	# buildingId must be first element
   u'capacity',
@@ -16451,7 +16472,7 @@ RESOURCE_ADDTL_FIELDS = [
   u'userVisibleDescription',
   ]
 RESOURCE_ALL_FIELDS = RESOURCE_DFLT_FIELDS+RESOURCE_ADDTL_FIELDS
-RESOURCE_FIELDS_WITH_CRS_NLS = [u'resourceDescription',]
+RESOURCE_FIELDS_WITH_CRS_NLS = [u'resourceDescription']
 
 def _showResource(cd, resource, i, count, FJQC, acls=None):
 
@@ -16590,11 +16611,11 @@ def doPrintShowResourceCalendars():
       getCalSettings = True
     elif myarg in RESOURCE_FIELDS_CHOICE_MAP:
       if not fieldsList:
-        fieldsList = [u'resourceId',]
+        fieldsList = [u'resourceId']
       fieldsList.append(RESOURCE_FIELDS_CHOICE_MAP[myarg])
     elif myarg == u'fields':
       if not fieldsList:
-        fieldsList = [u'resourceId',]
+        fieldsList = [u'resourceId']
       for field in _getFieldsList():
         if field in [Cmd.ARG_ACLS, Cmd.ARG_CALENDARACLS, Cmd.ARG_PERMISSIONS]:
           getCalPermissions = True
@@ -16612,7 +16633,7 @@ def doPrintShowResourceCalendars():
     fieldsList = RESOURCE_DFLT_FIELDS[:]
   if getCalSettings or getCalPermissions:
     cal = buildGAPIObject(API.CALENDAR)
-    fields = u'nextPageToken,items({0})'.format(u','.join(set(fieldsList+[u'resourceEmail',])))
+    fields = u'nextPageToken,items({0})'.format(u','.join(set(fieldsList+[u'resourceEmail'])))
   else:
     fields = u'nextPageToken,items({0})'.format(u','.join(set(fieldsList)))
   if u'buildingId' in fieldsList:
@@ -16719,7 +16740,7 @@ CALENDAR_ACL_ROLES_MAP = {
   u'none': u'none',
   }
 
-ACL_SCOPE_CHOICES = [u'default', u'user', u'group', u'domain',] # default must be first element
+ACL_SCOPE_CHOICES = [u'default', u'user', u'group', u'domain'] # default must be first element
 
 def getACLScope():
   scopeType, scopeValue = getChoiceAndValue(Cmd.OB_ACL_SCOPE, ACL_SCOPE_CHOICES[1:], u':')
@@ -17055,16 +17076,16 @@ LIST_EVENTS_SELECT_PROPERTIES = {
 LIST_EVENTS_MATCH_FIELDS = {
   u'attendees': [u'attendees', u'email'],
   u'attendeespattern': [u'attendees', u'match'],
-  u'description': [u'description',],
-  u'location': [u'location',],
-  u'summary': [u'summary',],
+  u'description': [u'description'],
+  u'location': [u'location'],
+  u'summary': [u'summary'],
   u'creatorname': [u'creator', u'displayName'],
   u'creatoremail': [u'creator', u'email'],
   u'organizername': [u'organizer', u'displayName'],
   u'organizeremail': [u'organizer', u'email'],
-  u'status': [u'status',],
-  u'transparency': [u'transparency',],
-  u'visibility': [u'visibility',],
+  u'status': [u'status'],
+  u'transparency': [u'transparency'],
+  u'visibility': [u'visibility'],
   }
 
 def _getCalendarListEventsProperty(myarg, attributes, kwargs):
@@ -17136,8 +17157,8 @@ CALENDAR_MAX_COLOR_INDEX = 24
 CALENDAR_EVENT_MIN_COLOR_INDEX = 1
 CALENDAR_EVENT_MAX_COLOR_INDEX = 11
 
-CALENDAR_EVENT_STATUS_CHOICES = [u'confirmed', u'tentative', u'cancelled',]
-CALENDAR_EVENT_TRANSPARENCY_CHOICES = [u'opaque', u'transparent',]
+CALENDAR_EVENT_STATUS_CHOICES = [u'confirmed', u'tentative', u'cancelled']
+CALENDAR_EVENT_TRANSPARENCY_CHOICES = [u'opaque', u'transparent']
 CALENDAR_EVENT_VISIBILITY_CHOICES = [u'default', u'public', u'private', u'confedential']
 
 def _getCalendarEventAttribute(myarg, body, parameters, function):
@@ -17274,7 +17295,7 @@ def _validateCalendarGetEventIDs(origUser, user, cal, calId, j, jcount, calendar
     calEventIds = calendarEventEntity[u'list']
   calId = normalizeCalendarId(calId, user)
   if not calEventIds:
-    fieldList = [u'id',]
+    fieldList = [u'id']
     for match in calendarEventEntity[u'matches']:
       fieldList.append(match[0][0])
     fields = u','.join(fieldList)
@@ -17575,7 +17596,7 @@ def _showCalendarEvent(primaryEmail, calId, eventEntityType, event, k, kcount, F
                                      timeObjects=EVENT_TIME_OBJECTS), ensure_ascii=False, sort_keys=True))
     return
   printEntity([eventEntityType, event[u'id']], k, kcount)
-  skipObjects = set([u'id',])
+  skipObjects = set([u'id'])
   Ind.Increment()
   for field in EVENT_PRINT_ORDER:
     if field in event:
@@ -17988,7 +18009,7 @@ def _getCalendarPrintShowEventOptions(calendarEventEntity, csvFormat, entityType
     if entityType == Ent.USER:
       sortTitles = [u'primaryEmail', u'calendarId']
     else: # Ent.CALENDAR:
-      sortTitles = [u'calendarId',]
+      sortTitles = [u'calendarId']
     if not FJQC.formatJSON:
       if not fieldsList:
         sortTitles.extend(EVENT_PRINT_ORDER)
@@ -18077,7 +18098,7 @@ def doCalendarsPrintShowSettings(cal, calIds):
   csvFormat = Act.csvFormat()
   if csvFormat:
     todrive = {}
-    sortTitles = [u'calendarId',]
+    sortTitles = [u'calendarId']
     titles, csvRows = initializeTitlesCSVfile(sortTitles)
   FJQC = FormatJSONQuoteChar()
   while Cmd.ArgumentsRemaining():
@@ -20571,6 +20592,8 @@ def getUserAttributes(cd, updateCmd, noUid=False):
       updatePrimaryEmail[u'search'] = search
       updatePrimaryEmail[u'pattern'] = pattern
       updatePrimaryEmail[u'replace'] = replace
+    elif myarg == u'json':
+      body.update(getJSON([u'primaryEmail']))
     elif myarg in UPDATE_USER_ARGUMENT_TO_PROPERTY_MAP:
       up = UPDATE_USER_ARGUMENT_TO_PROPERTY_MAP[myarg]
       userProperty = UProp.PROPERTIES[up]
@@ -20871,7 +20894,8 @@ def doCreateUser():
   try:
     callGAPI(cd.users(), u'insert',
              throw_reasons=[GAPI.DUPLICATE, GAPI.DOMAIN_NOT_FOUND, GAPI.DOMAIN_CANNOT_USE_APIS, GAPI.FORBIDDEN,
-                            GAPI.INVALID, GAPI.INVALID_INPUT, GAPI.INVALID_ORGUNIT, GAPI.INVALID_SCHEMA_VALUE],
+                            GAPI.INVALID, GAPI.INVALID_INPUT, GAPI.INVALID_PARAMETER,
+                            GAPI.INVALID_ORGUNIT, GAPI.INVALID_SCHEMA_VALUE],
              body=body, fields=u'')
     entityActionPerformed([Ent.USER, user])
     if notify.get(u'emailAddress'):
@@ -20882,7 +20906,7 @@ def doCreateUser():
     entityActionFailedWarning([Ent.USER, user], str(e))
   except GAPI.invalidSchemaValue:
     entityActionFailedWarning([Ent.USER, user], Msg.INVALID_SCHEMA_VALUE)
-  except (GAPI.invalid, GAPI.invalidInput) as e:
+  except (GAPI.invalid, GAPI.invalidInput, GAPI.invalidParameter) as e:
     entityActionFailedWarning([Ent.USER, user], str(e))
   except GAPI.invalidOrgunit:
     entityActionFailedWarning([Ent.USER, user], Msg.INVALID_ORGUNIT)
@@ -20939,7 +20963,8 @@ def updateUsers(entityList):
         try:
           result = callGAPI(cd.users(), u'update',
                             throw_reasons=[GAPI.USER_NOT_FOUND, GAPI.DOMAIN_NOT_FOUND, GAPI.FORBIDDEN,
-                                           GAPI.INVALID, GAPI.INVALID_INPUT, GAPI.INVALID_ORGUNIT, GAPI.INVALID_SCHEMA_VALUE],
+                                           GAPI.INVALID, GAPI.INVALID_INPUT, GAPI.INVALID_PARAMETER,
+                                           GAPI.INVALID_ORGUNIT, GAPI.INVALID_SCHEMA_VALUE],
                             userKey=userKey, body=body, fields=u'primaryEmail,name')
           entityActionPerformed([Ent.USER, user], i, count)
           if notify.get(u'emailAddress') and notify.get(u'password'):
@@ -20951,7 +20976,8 @@ def updateUsers(entityList):
             try:
               callGAPI(cd.users(), u'insert',
                        throw_reasons=[GAPI.DUPLICATE, GAPI.DOMAIN_NOT_FOUND, GAPI.FORBIDDEN,
-                                      GAPI.INVALID, GAPI.INVALID_INPUT, GAPI.INVALID_ORGUNIT, GAPI.INVALID_SCHEMA_VALUE],
+                                      GAPI.INVALID, GAPI.INVALID_INPUT, GAPI.INVALID_PARAMETER,
+                                      GAPI.INVALID_ORGUNIT, GAPI.INVALID_SCHEMA_VALUE],
                        body=body, fields=u'')
               Act.Set(Act.CREATE)
               entityActionPerformed([Ent.USER, user], i, count)
@@ -20966,7 +20992,7 @@ def updateUsers(entityList):
       entityUnknownWarning(Ent.USER, user, i, count)
     except GAPI.invalidSchemaValue:
       entityActionFailedWarning([Ent.USER, user], Msg.INVALID_SCHEMA_VALUE, i, count)
-    except (GAPI.invalid, GAPI.invalidInput) as e:
+    except (GAPI.invalid, GAPI.invalidInput, GAPI.invalidParameter) as e:
       entityActionFailedWarning([Ent.USER, user], str(e), i, count)
     except GAPI.invalidOrgunit:
       entityActionFailedWarning([Ent.USER, user], Msg.INVALID_ORGUNIT, i, count)
@@ -21283,8 +21309,8 @@ USER_FIELDS_CHOICE_MAP = {
   u'websites': u'websites',
   }
 
-INFO_USER_OPTIONS = [u'noaliases', u'nobuildingnames', u'nogroups', u'nolicenses', u'nolicences', u'noschemas', u'schemas', u'userview',]
-USER_SKIP_OBJECTS = set([u'thumbnailPhotoEtag',])
+INFO_USER_OPTIONS = [u'noaliases', u'nobuildingnames', u'nogroups', u'nolicenses', u'nolicences', u'noschemas', u'schemas', u'userview']
+USER_SKIP_OBJECTS = set([u'thumbnailPhotoEtag'])
 USER_TIME_OBJECTS = set([u'creationTime', u'deletionTime', u'lastLoginTime'])
 
 def infoUsers(entityList):
@@ -21345,7 +21371,7 @@ def infoUsers(entityList):
       getGroups = getLicenses = False
     elif myarg in USER_FIELDS_CHOICE_MAP:
       if not fieldsList:
-        fieldsList = [u'primaryEmail',]
+        fieldsList = [u'primaryEmail']
       addFieldToFieldsList(myarg, USER_FIELDS_CHOICE_MAP, fieldsList)
     elif myarg == u'fields':
       if not fieldsList:
@@ -21744,7 +21770,7 @@ def doPrintUsers(entityList=None):
       viewType = u'domain_public'
     elif myarg in [u'custom', u'schemas']:
       if not fieldsList:
-        fieldsList = [u'primaryEmail',]
+        fieldsList = [u'primaryEmail']
       fieldsList.append(u'customSchemas')
       customFieldMask = getString(Cmd.OB_SCHEMA_NAME_LIST).replace(u' ', u',')
       if customFieldMask.lower() == u'all':
@@ -21779,7 +21805,7 @@ def doPrintUsers(entityList=None):
       FJQC.getFormatJSONQuoteChar(myarg, None)
   _, _, entityList = getEntityArgument(entityList)
   if countOnly:
-    fieldsList = [u'primaryEmail',]
+    fieldsList = [u'primaryEmail']
     domainCounts = {}
     if not FJQC.formatJSON:
       titles, csvRows = initializeTitlesCSVfile([u'domain', u'count'])
@@ -21872,7 +21898,7 @@ def doPrintUsers(entityList=None):
         _updateDomainCounts(normalizeEmailAddressOrUID(userEntity))
   if not countOnly:
     if sortHeaders:
-      sortCSVTitles([u'primaryEmail',], titles)
+      sortCSVTitles([u'primaryEmail'], titles)
     if sortRows and orderBy:
       orderBy = u'primaryEmail' if orderBy == u'email' else u'name.{0}'.format(orderBy)
       if orderBy in titles[u'set']:
@@ -22333,7 +22359,7 @@ COURSE_FIELDS_CHOICE_MAP = {
   }
 COURSE_MEMBER_ARGUMENTS = [u'none', u'all', u'students', u'teachers']
 COURSE_TIME_OBJECTS = set([u'creationTime', u'updateTime'])
-COURSE_NOLEN_OBJECTS = set([u'materials',])
+COURSE_NOLEN_OBJECTS = set([u'materials'])
 COURSE_PROPERTY_PRINT_ORDER = [
   u'id',
   u'name',
@@ -22886,7 +22912,7 @@ def doPrintCourseAnnouncements():
   fieldsList = []
   courseSelectionParameters = _initCourseSelectionParameters()
   courseItemFilter = _initCourseItemFilter()
-  courseShowProperties = _initCourseShowProperties([u'name',])
+  courseShowProperties = _initCourseShowProperties([u'name'])
   courseAnnouncementIds = []
   courseAnnouncementStates = []
   orderBy = initOrderBy()
@@ -23036,7 +23062,7 @@ def doPrintCourseWork():
   courseSelectionParameters = _initCourseSelectionParameters()
   courseWorkSelectionParameters = _initCourseWorkSelectionParameters()
   courseItemFilter = _initCourseItemFilter()
-  courseShowProperties = _initCourseShowProperties([u'name',])
+  courseShowProperties = _initCourseShowProperties([u'name'])
   orderBy = initOrderBy()
   creatorEmails = {}
   showCreatorEmail = False
@@ -23175,7 +23201,7 @@ def doPrintCourseSubmissions():
   courseSelectionParameters = _initCourseSelectionParameters()
   courseWorkSelectionParameters = _initCourseWorkSelectionParameters()
   courseItemFilter = _initCourseItemFilter()
-  courseShowProperties = _initCourseShowProperties([u'name',])
+  courseShowProperties = _initCourseShowProperties([u'name'])
   courseSubmissionStates = []
   courseSubmissionIds = []
   orderBy = initOrderBy()
@@ -23295,7 +23321,7 @@ def doPrintCourseParticipants():
   todrive = {}
   titles, csvRows = initializeTitlesCSVfile([u'courseId', u'courseName'])
   courseSelectionParameters = _initCourseSelectionParameters()
-  courseShowProperties = _initCourseShowProperties([u'name',])
+  courseShowProperties = _initCourseShowProperties([u'name'])
   courseShowProperties[u'members'] = u'all'
   FJQC = FormatJSONQuoteChar()
   while Cmd.ArgumentsRemaining():
@@ -23757,7 +23783,7 @@ def _doDeleteGuardian(croom, studentId, guardianId, guardianClass, i=0, count=0,
       if guardianIdIsEmail:
         invitations = callGAPIpages(croom.userProfiles().guardianInvitations(), u'list', u'guardianInvitations',
                                     throw_reasons=[GAPI.NOT_FOUND, GAPI.INVALID_ARGUMENT, GAPI.BAD_REQUEST, GAPI.FORBIDDEN, GAPI.PERMISSION_DENIED],
-                                    studentId=studentId, invitedEmailAddress=guardianId, states=[u'PENDING',],
+                                    studentId=studentId, invitedEmailAddress=guardianId, states=[u'PENDING'],
                                     fields=u'nextPageToken,guardianInvitations(studentId,invitationId)')
         for invitation in invitations:
           result = _cancelGuardianInvitation(croom, invitation[u'studentId'], invitation[u'invitationId'], i, count, j, jcount)
@@ -23839,7 +23865,7 @@ def clearGuardians(users):
       if guardianClass != GUARDIAN_CLASS_ACCEPTED:
         invitations = callGAPIpages(croom.userProfiles().guardianInvitations(), u'list', u'guardianInvitations',
                                     throw_reasons=[GAPI.NOT_FOUND, GAPI.INVALID_ARGUMENT, GAPI.BAD_REQUEST, GAPI.FORBIDDEN, GAPI.PERMISSION_DENIED],
-                                    studentId=studentId, states=[U'PENDING',], fields=u'nextPageToken,guardianInvitations(invitationId)')
+                                    studentId=studentId, states=[U'PENDING'], fields=u'nextPageToken,guardianInvitations(invitationId)')
         Act.Set(Act.CANCEL)
         jcount = len(invitations)
         entityPerformActionNumItems([Ent.STUDENT, studentId], jcount, Ent.GUARDIAN_INVITATION, i, count)
@@ -23881,7 +23907,7 @@ def syncGuardians(users):
     try:
       invitations = callGAPIpages(croom.userProfiles().guardianInvitations(), u'list', u'guardianInvitations',
                                   throw_reasons=[GAPI.NOT_FOUND, GAPI.INVALID_ARGUMENT, GAPI.BAD_REQUEST, GAPI.FORBIDDEN, GAPI.PERMISSION_DENIED],
-                                  studentId=studentId, states=[U'PENDING',], fields=u'nextPageToken,guardianInvitations(invitationId,invitedEmailAddress)')
+                                  studentId=studentId, states=[U'PENDING'], fields=u'nextPageToken,guardianInvitations(invitationId,invitedEmailAddress)')
       guardians = callGAPIpages(croom.userProfiles().guardians(), u'list', u'guardians',
                                 throw_reasons=[GAPI.NOT_FOUND, GAPI.INVALID_ARGUMENT, GAPI.BAD_REQUEST, GAPI.FORBIDDEN, GAPI.PERMISSION_DENIED],
                                 studentId=studentId, fields=u'nextPageToken,guardians(guardianId,invitedEmailAddress)')
@@ -23949,13 +23975,13 @@ def _getClassroomEmail(croom, classroomEmails, userId, user):
     classroomEmails[userId] = userEmail
   return userEmail
 
-GUARDIAN_TIME_OBJECTS = set([u'creationTime',])
+GUARDIAN_TIME_OBJECTS = set([u'creationTime'])
 GUARDIAN_STATES = [u'complete', u'pending']
 
 def _printShowGuardians(entityList=None):
   croom = buildGAPIObject(API.CLASSROOM)
   if entityList is None:
-    studentIds = [u'-',]
+    studentIds = [u'-']
     allStudents = True
   else:
     studentIds = entityList
@@ -24042,7 +24068,7 @@ def _printShowGuardians(entityList=None):
               Ind.Increment()
               if showStudentEmails:
                 invitation[u'studentEmail'] = _getClassroomEmail(croom, classroomEmails, invitation[u'studentId'], studentId)
-              showJSON(None, invitation, [u'invitedEmailAddress',], GUARDIAN_TIME_OBJECTS)
+              showJSON(None, invitation, [u'invitedEmailAddress'], GUARDIAN_TIME_OBJECTS)
               Ind.Decrement()
             Ind.Decrement()
           else:
@@ -24074,7 +24100,7 @@ def _printShowGuardians(entityList=None):
               Ind.Increment()
               if showStudentEmails:
                 guardian[u'studentEmail'] = _getClassroomEmail(croom, classroomEmails, guardian[u'studentId'], studentId)
-              showJSON(None, guardian, [u'invitedEmailAddress',])
+              showJSON(None, guardian, [u'invitedEmailAddress'])
               Ind.Decrement()
             Ind.Decrement()
           else:
@@ -24550,7 +24576,7 @@ def doPrinterRegister():
                  u'support_url': u'https://groups.google.com/forum/#!forum/google-apps-manager',
                  u'update_url': GAM_RELEASES,
                  u'firmware': __version__,
-                 u'semantic_state': {"version": "1.0", "printer": {"state": "IDLE",}},
+                 u'semantic_state': {"version": "1.0", "printer": {"state": "IDLE"}},
                  u'use_cdd': True,
                  u'capabilities': {"version": "1.0",
                                    "printer": {"supported_content_type": [{"content_type": "application/pdf", "min_version": "1.5"},
@@ -24795,7 +24821,7 @@ def _batchCreatePrinterACLs(cp, printerId, i, count, scopeList, role, notify):
 
 PRINTER_ROLE_MAP = {u'manager': Ent.ROLE_MANAGER, u'owner': Ent.ROLE_OWNER, u'user': Ent.ROLE_USER}
 PRINTER_ROLE_PRINT_MAP = {u'manager': Ent.ROLE_MANAGER, u'owner': Ent.ROLE_OWNER, u'user': Ent.ROLE_USER, u'print': u'print'}
-PRINTER_PUBLIC_SCOPE_LIST = [u'public',]
+PRINTER_PUBLIC_SCOPE_LIST = [u'public']
 
 # gam printer|printers <PrinterIDEntity> create|add user|manager|owner <PrinterACLScopeEntity> [notify]
 # gam printer|printers <PrinterIDEntity> create|add print public
@@ -25534,7 +25560,7 @@ def getUserCalendarEntity(default=u'primary', noSelectionKwargs=None):
          courseSelectionParameters[u'teacherId'] or courseSelectionParameters[u'myCoursesAsTeacher'] or
          courseSelectionParameters[u'studentId'] or courseSelectionParameters[u'myCoursesAsStudent'])):
     calendarEntity[u'courseSelectionParameters'] = courseSelectionParameters
-    calendarEntity[u'courseShowProperties'] = _initCourseShowProperties([u'calendarId',])
+    calendarEntity[u'courseShowProperties'] = _initCourseShowProperties([u'calendarId'])
     calendarEntity[u'croom'] = buildGAPIObject(API.CLASSROOM)
   return calendarEntity
 
@@ -25605,7 +25631,7 @@ def _validateUserGetCalendarIds(user, i, count, calendarEntity,
       entityPerformActionSubItemModifierNumItemsModifierNewValue([Ent.USER, user], itemType, modifier, jcount, Ent.CALENDAR, Act.MODIFIER_TO, newCalId, i, count)
   return (user, cal, calIds, jcount)
 
-CALENDAR_NOTIFICATION_METHODS = [u'email', u'sms',]
+CALENDAR_NOTIFICATION_METHODS = [u'email', u'sms']
 CALENDAR_NOTIFICATION_TYPES_MAP = {
   u'eventcreation': u'eventCreation',
   u'eventchange': u'eventChange',
@@ -25830,7 +25856,7 @@ def removeCalendars(users):
   checkForExtraneousArguments()
   _modifyRemoveCalendars(users, calendarEntity, u'delete')
 
-CALENDAR_SIMPLE_LISTS = set([u'allowedConferenceSolutionTypes',])
+CALENDAR_SIMPLE_LISTS = set([u'allowedConferenceSolutionTypes'])
 
 # gam <UserTypeEntity> print calendars <UserCalendarEntity> [todrive <ToDriveAttributes>*] [permissions]
 #	[formatjson] [delimiter <Character>] [quotechar <Character>}
@@ -25938,7 +25964,7 @@ def printShowCalSettings(users):
   csvFormat = Act.csvFormat()
   if csvFormat:
     todrive = {}
-    sortTitles = [u'User',]
+    sortTitles = [u'User']
     titles, csvRows = initializeTitlesCSVfile(sortTitles)
   FJQC = FormatJSONQuoteChar()
   while Cmd.ArgumentsRemaining():
@@ -26633,9 +26659,9 @@ def getDriveFileEntity(orphansOK=False, queryShortcutsOK=True):
     elif queryShortcutsOK and mycmd in QUERY_SHORTCUTS_MAP:
       fileIdEntity[u'query'] = QUERY_SHORTCUTS_MAP[mycmd]
     elif mycmd in [u'root', u'mydrive']:
-      cleanFileIDsList(fileIdEntity, [u'root',])
+      cleanFileIDsList(fileIdEntity, [u'root'])
     elif orphansOK and mycmd == u'orphans':
-      cleanFileIDsList(fileIdEntity, [u'Orphans',])
+      cleanFileIDsList(fileIdEntity, [u'Orphans'])
     elif (mycmd.find(u':') > 0) and _getKeywordColonValue(myarg):
       pass
     else:
@@ -26768,7 +26794,7 @@ MIMETYPE_CHOICE_MAP = {
   u'gspreadsheet': MIMETYPE_GA_SPREADSHEET,
   }
 
-MIMETYPE_TYPES = [u'application', u'audio', u'font', u'image', u'message', u'model', u'multipart', u'text', u'video',]
+MIMETYPE_TYPES = [u'application', u'audio', u'font', u'image', u'message', u'model', u'multipart', u'text', u'video']
 
 def validateMimeType(mimeType):
   if mimeType in MIMETYPE_CHOICE_MAP:
@@ -27343,7 +27369,7 @@ def printShowDriveSettings(users):
     except (GAPI.serviceNotAvailable, GAPI.authError, GAPI.domainPolicy) as e:
       userSvcNotApplicableOrDriveDisabled(user, str(e), i, count)
   if csvFormat:
-    writeCSVfile(csvRows, titles, u'User Drive Settings', todrive, [u'email',]+DRIVESETTINGS_SCALAR_FIELDS)
+    writeCSVfile(csvRows, titles, u'User Drive Settings', todrive, [u'email']+DRIVESETTINGS_SCALAR_FIELDS)
 
 def initFilePathInfo():
   return {u'ids': {}, u'allPaths': {}, u'localPaths': None}
@@ -27759,7 +27785,7 @@ def getRevisionsEntity():
       startEndTime.Get(mycmd)
       revisionsEntity[u'range'] = (mycmd, startEndTime.startDateTime, startEndTime.endDateTime)
     else:
-      revisionsEntity[u'list'] = [myarg,]
+      revisionsEntity[u'list'] = [myarg]
   return revisionsEntity
 
 def _selectRevisionIds(drive, fileId, origUser, user, i, count, j, jcount, revisionsEntity):
@@ -28125,7 +28151,7 @@ def printShowFileRevisions(users):
             addRowTitlesToCSVfile(flattenJSON({u'revisions': results}, flattened={u'Owner': user, u'id': fileId}, timeObjects=timeObjects), csvRows, titles)
     Ind.Decrement()
   if csvFormat:
-    writeCSVfile(csvRows, titles, u'Drive File Revisions', todrive, [u'Owner', u'id', fileNameTitle]+([u'revision.id',] if oneItemPerRow else []))
+    writeCSVfile(csvRows, titles, u'Drive File Revisions', todrive, [u'Owner', u'id', fileNameTitle]+([u'revision.id'] if oneItemPerRow else []))
 
 def _stripMeInOwners(query):
   if not query:
@@ -28171,7 +28197,7 @@ def _getShowOwnedBy(query):
         query = ME_IN_OWNERS
   return (showOwnedBy, query)
 
-OWNED_BY_ME_FIELDS_TITLES = [u'ownedByMe',]
+OWNED_BY_ME_FIELDS_TITLES = [u'ownedByMe']
 
 def initFileTree(drive):
   fileTree = {u'Orphans': {u'info': {u'id': u'Orphans', VX_FILENAME: u'Orphans', u'mimeType': MIMETYPE_GA_FOLDER, u'ownedByMe': True}, u'children': []}}
@@ -28785,7 +28811,7 @@ def printShowFileCounts(users):
   csvFormat = Act.csvFormat()
   if csvFormat:
     todrive = {}
-  fieldsList = [u'mimeType',]
+  fieldsList = [u'mimeType']
   DLP = DriveListParameters(mimeTypeInQuery=True)
   while Cmd.ArgumentsRemaining():
     myarg = getArgument()
@@ -29037,7 +29063,7 @@ def printShowFileTree(users):
         if u'Orphans' in fileTree and fileTree[u'Orphans'][u'children']:
           cleanFileIDsList(fileIdEntity, [u'root', u'Orphans'])
         else:
-          cleanFileIDsList(fileIdEntity, [u'root',])
+          cleanFileIDsList(fileIdEntity, [u'root'])
     else:
       fileTree = {}
     user, drive, jcount = _validateUserGetFileIDs(origUser, i, count, fileIdEntity, drive=drive, entityType=Ent.DRIVE_FILE_OR_FOLDER)
@@ -30134,8 +30160,8 @@ def moveDriveFile(users):
     if copyMoveOptions[u'summary']:
       _printStatistics(user, statistics, i, count, False)
 
-DELETE_DRIVEFILE_CHOICE_MAP = {u'purge': u'delete', u'trash': u'trash', u'untrash': u'untrash',}
-DELETE_DRIVEFILE_FUNCTION_TO_ACTION_MAP = {u'delete': Act.PURGE, u'trash': Act.TRASH, u'untrash': Act.UNTRASH,}
+DELETE_DRIVEFILE_CHOICE_MAP = {u'purge': u'delete', u'trash': u'trash', u'untrash': u'untrash'}
+DELETE_DRIVEFILE_FUNCTION_TO_ACTION_MAP = {u'delete': Act.PURGE, u'trash': Act.TRASH, u'untrash': Act.UNTRASH}
 
 # gam <UserTypeEntity> delete drivefile <DriveFileEntity> [purge|trash|untrash]
 def deleteDriveFile(users, function=None):
@@ -31799,7 +31825,7 @@ DRIVEFILE_ACL_ROLES_MAP = {
   u'writer': u'writer',
   }
 
-DRIVEFILE_ACL_PERMISSION_TYPES = [u'anyone', u'domain', u'group', u'user',] # anyone must be first element
+DRIVEFILE_ACL_PERMISSION_TYPES = [u'anyone', u'domain', u'group', u'user'] # anyone must be first element
 
 # gam <UserTypeEntity> create|add drivefileacl <DriveFileEntity> anyone|(user <UserItem>)|(group <GroupItem>)|(domain <DomainName>)
 #	(role <DriveFileACLRole>) [withlink|(allowfilediscovery|discoverable [<Boolean>])] [expiration <Time>] [sendemail] [emailmessage <String>] [showtitles] [nodetails]
@@ -33111,7 +33137,7 @@ def appendSheetRanges(users):
         if FJQC.formatJSON:
           printLine(u'{{"User": "{0}", "spreadsheetId": "{1}", "JSON": {2}}}'.format(user, spreadsheetId, json.dumps(result, ensure_ascii=False, sort_keys=False)))
           continue
-        for field in [u'tableRange',]:
+        for field in [u'tableRange']:
           printKeyValueList([field, result[field]])
         _showUpdateValuesResponse(result[u'updates'], k, kcount)
       except (GAPI.notFound, GAPI.forbidden, GAPI.internalError, GAPI.insufficientFilePermissions, GAPI.badRequest) as e:
@@ -33345,7 +33371,7 @@ def _printShowTokens(entityType, users):
   csvFormat = Act.csvFormat()
   if csvFormat:
     todrive = {}
-    titles, csvRows = initializeTitlesCSVfile([u'user',]+TOKENS_FIELDS_TITLES)
+    titles, csvRows = initializeTitlesCSVfile([u'user']+TOKENS_FIELDS_TITLES)
   clientId = None
   orderBy = u'clientId'
   delimiter = GC.Values[GC.CSV_OUTPUT_FIELD_DELIMITER]
@@ -33534,7 +33560,7 @@ def printShowGmailProfile(users):
     except (GAPI.serviceNotAvailable, GAPI.badRequest):
       entityServiceNotApplicableWarning(Ent.USER, user, i, count)
   if csvFormat:
-    writeCSVfile(csvRows, titles, u'Gmail Profiles', todrive, [u'emailAddress',])
+    writeCSVfile(csvRows, titles, u'Gmail Profiles', todrive, [u'emailAddress'])
 
 PROFILE_PROPERTY_PRINT_ORDER = [
   u'objectType',
@@ -33568,7 +33594,7 @@ PROFILE_ARRAY_PROPERTY_PRINT_ORDER = {
   u'coverInfo': [u'topImageOffset', u'leftImageOffset'],
   u'coverPhoto': [u'url', u'height', u'width'],
   u'emails': [u'type', u'value'],
-  u'image': [u'url',],
+  u'image': [u'url'],
   u'name': [u'formatted', u'honorificPrefix', u'givenName', u'middleName', u'familyName', u'honorificSuffix'],
   u'organizations': [u'type', u'name', u'title', u'department', u'location', u'description', u'startDate', u'endDate', u'primary'],
   u'placesLived': [u'value', u'primary'],
@@ -33607,7 +33633,7 @@ def _showGplusProfile(user, i, count, result):
       if object_name is not None or unindentAfterLast:
         Ind.Decrement()
     else:
-      if object_name in [u'aboutMe',]:
+      if object_name in [u'aboutMe']:
         printJSONValue(dehtml(object_value))
       else:
         printJSONValue(object_value)
@@ -33685,7 +33711,7 @@ LABEL_LABEL_LIST_VISIBILITY_CHOICE_MAP = {
   u'show': u'labelShow',
   u'showifunread': u'labelShowIfUnread',
   }
-LABEL_MESSAGE_LIST_VISIBILITY_CHOICES = [u'hide', u'show',]
+LABEL_MESSAGE_LIST_VISIBILITY_CHOICES = [u'hide', u'show']
 
 def getLabelAttributes(myarg, body):
   if myarg == u'labellistvisibility':
@@ -34423,8 +34449,8 @@ def _processMessagesThreads(users, entityType):
   includeSpamTrash = Act.Get() in [Act.DELETE, Act.MODIFY, Act.UNTRASH]
   if function == u'spam':
     function = u'modify'
-    addLabelIds = [u'SPAM',]
-    removeLabelIds = [u'INBOX',]
+    addLabelIds = [u'SPAM']
+    removeLabelIds = [u'INBOX']
   i, count, users = getEntityArgument(users)
   for user in users:
     i += 1
@@ -34763,7 +34789,7 @@ def _importInsertMessage(users, importMsg):
         labelNameMap = _initLabelNameMap(userGmailLabels)
         body[u'labelIds'] = _convertLabelNamesToIds(gmail, addLabelNames, labelNameMap, True)
       else:
-        body[u'labelIds'] = [u'INBOX',]
+        body[u'labelIds'] = [u'INBOX']
       result = callGAPI(gmail.users().messages(), function,
                         throw_reasons=GAPI.GMAIL_THROW_REASONS,
                         userId=u'me', body=body, **kwargs)
@@ -35478,7 +35504,7 @@ FILTER_CRITERIA_CHOICE_MAP = {
   }
 FILTER_ADD_LABEL_ACTIONS = [u'important', u'star', u'trash']
 FILTER_REMOVE_LABEL_ACTIONS = [u'markread', u'notimportant', u'archive', u'neverspam']
-FILTER_ACTION_CHOICES = FILTER_ADD_LABEL_ACTIONS+FILTER_REMOVE_LABEL_ACTIONS+[u'forward', u'label',]
+FILTER_ACTION_CHOICES = FILTER_ADD_LABEL_ACTIONS+FILTER_REMOVE_LABEL_ACTIONS+[u'forward', u'label']
 FILTER_ACTION_LABEL_MAP = {
   u'archive': u'INBOX',
   u'important': u'IMPORTANT',
@@ -37860,7 +37886,7 @@ def doLoop():
 # gam loop ... gam !redirect|select|config ... no further processing of gam.cfg
 # gam redirect|select|config ... loop ... gam !redirect|select|config ... no further processing of gam.cfg
   processGamCfg = choice in Cmd.GAM_META_COMMANDS
-  GAM_argv, subFields = getSubFields([Cmd.GAM_CMD,], csvFile.fieldnames)
+  GAM_argv, subFields = getSubFields([Cmd.GAM_CMD], csvFile.fieldnames)
   multi = GM.Globals[GM.CSVFILE][GM.REDIRECT_MULTIPROCESS]
   if multi:
     mpQueue, mpQueueHandler = initializeCSVFileQueueHandler(None)
