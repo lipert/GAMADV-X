@@ -21255,6 +21255,7 @@ USER_FIELDS_CHOICE_MAP = {
   u'changepassword': u'changePasswordAtNextLogin',
   u'changepasswordatnextlogin': u'changePasswordAtNextLogin',
   u'creationtime': u'creationTime',
+  u'customerid': u'customerId',
   u'deletiontime': u'deletionTime',
   u'email': u'emails',
   u'emails': u'emails',
