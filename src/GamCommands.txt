@@ -237,7 +237,7 @@ If an item contains spaces, it should be surrounded by ".
 <QueryCalendar> ::= <String>
 <QueryContact> ::= <String> See: https://developers.google.com/google-apps/contacts/v3/reference#contacts-query-parameters-reference
 <QueryCrOS> ::= <String> See: https://support.google.com/chrome/a/answer/1698333?hl=en
-<QueryDriveFile> ::= <String> See: https://developers.google.com/drive/v2/web/search-parameters
+<QueryDriveFile> ::= <String> See: https://developers.google.com/drive/api/v2/search-files
 <QueryGmail> ::= <String> See: https://support.google.com/mail/answer/7190
 <QueryGroup> ::= <String> See: https://developers.google.com/admin-sdk/directory/v1/guides/search-groups
 <QueryMobile> ::= <String> See: https://support.google.com/a/answer/7549103
@@ -1543,12 +1543,12 @@ gam show domainaliases|aliasdomains [formatjson]
 gam create|add group <EmailAddress> [copyfrom <GroupItem>] <GroupAttribute>*
 gam update group|groups <GroupEntity> [admincreated <Boolean>] [email <EmailAddress>] [copyfrom <GroupItem>] <GroupAttribute>*
 gam update group|groups <GroupEntity> create|add [owner|manager|member] [usersonly|groupsonly] [notsuspended|suspended]
-        [[delivery] allmail|abridged|daily|digest|none|disabled] [preview] <UserTypeEntity>
+        [[delivery] allmail|abridged|daily|digest|none|nomail|disabled] [preview] <UserTypeEntity>
 gam update group|groups <GroupEntity> delete|remove [owner|manager|member] [usersonly|groupsonly] [notsuspended|suspended] [preview] <UserTypeEntity>
 gam update group|groups <GroupEntity> sync [owner|manager|member] [usersonly|groupsonly] [addonly|removeonly] [notsuspended|suspended]
-        [[delivery] allmail|abridged|daily|digest|none|disabled] [preview] <UserTypeEntity>
+        [[delivery] allmail|abridged|daily|digest|none|nomail|disabled] [preview] <UserTypeEntity>
 gam update group|groups <GroupEntity> update [owner|manager|member] [usersonly|groupsonly] [notsuspended|suspended]
-        [[delivery] allmail|abridged|daily|digest|none|disabled] [preview] [createifnotfound] <UserTypeEntity>
+        [[delivery] allmail|abridged|daily|digest|none|nomail|disabled] [preview] [createifnotfound] <UserTypeEntity>
 gam update group|groups <GroupEntity> clear [member] [manager] [owner] [notsuspended|suspended] [preview]
 gam delete group|groups <GroupEntity>
 
@@ -2428,7 +2428,7 @@ gam <UserTypeEntity> show backupcodes|verificationcodes
         (resource <ResourceID>)|
         (resources <ResourceIDList>)|
         ((calendars <CalendarList>) | <FileSelector> | <CSVFileSelector> | <CSVkmdSelector> | <CSVDataSelector>)|
-        <CalendarSelectProperty>+
+        <CalendarSelectProperty>*
 
 <CalendarACLScope> ::= <EmailAddress>|user:<EmailAdress>|group:<EmailAddress>|domain:<DomainName>)|domain|default
 <CalendarACLScopeList> ::= "<CalendarACLScope>(,<CalendarACLScope>)*"
@@ -2457,8 +2457,11 @@ gam <UserTypeEntity> update calendars <UserCalendarEntity> <CalendarAttribute>+
 gam <UserTypeEntity> delete calendars <UserCalendarEntity>
 
 gam <UserTypeEntity> info calendars <UserCalendarEntity> [formatjson]
-gam <UserTypeEntity> show calendars <UserCalendarEntity> [permissions] [formatjson]
-gam <UserTypeEntity> print calendars <UserCalendarEntity> [todrive <ToDriveAttribute>*] [permissions]
+gam <UserTypeEntity> show calendars [permissions]
+         [primary] <CalendarSelectProperty>* [noprimary] [nogroups] [noresources] [nosystem] [otherusers]
+         [formatjson]
+gam <UserTypeEntity> print calendars <[todrive <ToDriveAttribute>*] [permissions]
+         [primary] <CalendarSelectProperty>* [noprimary] [nogroups] [noresources] [nosystem] [otherusers]
          [formatjson] [delimiter <Character>] [quotechar <Character>]
 
 gam <UserTypeEntity> show calsettings [formatjson]
@@ -2912,16 +2915,19 @@ gam <UserTypeEntity> show filepath <DriveFileEntity> (orderby <DriveFileOrderByF
 gam <UserTypeEntity> print filepath <DriveFileEntity> [todrive <ToDriveAttribute>*] [oneitemperrow] (orderby <DriveFileOrderByFieldName> [ascending|descending])*
 gam <UserTypeEntity> show filecounts [anyowner|(showownedby any|me|others)]
         [query <QueryDriveFile>] [fullquery <QueryDriveFile>] [<DriveFileQueryShortcut>]
+        (querytime.* <Time>)*
         [showmimetype [not] <MimeTypeList>] [minimumfilesize <Integer>] [filenamematchpattern <RegularExpression>]
         (<PermissionMatch>)* [<PermissionMatchMode>] [<PermissionMatchAction>]
 gam <UserTypeEntity> print filecounts [todrive <ToDriveAttribute>*] [anyowner|(showownedby any|me|others)]
         [query <QueryDriveFile>] [fullquery <QueryDriveFile>] [<DriveFileQueryShortcut>]
+        (querytime.* <Time>)*
         [showmimetype [not] <MimeTypeList>] [minimumfilesize <Integer>] [filenamematchpattern <RegularExpression>]
         (<PermissionMatch>)* [<PermissionMatchMode>] [<PermissionMatchAction>]
 
 gam <UserTypeEntity> print|show filelist [todrive <ToDriveAttribute>*] [anyowner|(showownedby any|me|others)]
         [((query <QueryDriveFile>) | (fullquery <QueryDriveFile>) | <DriveFileQueryShortcut>) |
           (select <DriveFileEntityListTree> [selectsubquery <QueryDriveFile>] [depth <Number>] [showparent])]
+        (querytime.* <Time>)* [maxfiles <Integer>]
         [showmimetype [not] <MimeTypeList>] [minimumfilesize <Integer>] [filenamematchpattern <RegularExpression>]
         (<PermissionMatch>)* [<PermissionMatchMode>] [<PermissionMatchAction>]
         [filepath|fullpath] [buildtree] [allfields|<DriveFieldName>*|(fields <DriveFieldNameList>)] (orderby <DriveFileOrderByFieldName> [ascending|descending])* [delimiter <Character>] [quotechar <Character>]
