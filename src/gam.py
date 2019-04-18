@@ -22,7 +22,7 @@ For more information, see https://github.com/taers232c/GAMADV-X
 """
 
 __author__ = u'Ross Scroggs <ross.scroggs@gmail.com>'
-__version__ = u'4.70.04'
+__version__ = u'4.70.05'
 __license__ = u'Apache License 2.0 (http://www.apache.org/licenses/LICENSE-2.0)'
 
 import base64
@@ -26085,7 +26085,7 @@ def removeCalendars(users):
   _modifyRemoveCalendars(users, calendarEntity, u'delete')
 
 CALENDAR_SIMPLE_LISTS = set([u'allowedConferenceSolutionTypes'])
-CALENDAR_EXCLUDE_OPTIONS = set([u'noprimary', u'nogroups', u'noresources', u'nosystem'])
+CALENDAR_EXCLUDE_OPTIONS = set([u'noprimary', u'nogroups', u'noresources', u'nosystem', u'nousers'])
 CALENDAR_EXCLUDE_DOMAINS = {
   u'nogroups': u'group.calendar.google.com',
   u'noresources': u'resource.calendar.google.com',
@@ -26093,10 +26093,10 @@ CALENDAR_EXCLUDE_DOMAINS = {
   }
 
 # gam <UserTypeEntity> print calendars <UserCalendarEntity> [todrive <ToDriveAttributes>*] [permissions]
-#	[primary] <CalendarSelectProperty>* [noprimary] [nogroups] [noresources] [nosystem] [otherusers]
+#	[primary] <CalendarSelectProperty>* [noprimary] [nogroups] [noresources] [nosystem] [nousers]
 #	[formatjson] [delimiter <Character>] [quotechar <Character>}
 # gam <UserTypeEntity> show calendars <UserCalendarEntity> [permissions]
-#	[primary] <CalendarSelectProperty>* [noprimary] [nogroups] [noresources] [nosystem] [otherusers]
+#	[primary] <CalendarSelectProperty>* [noprimary] [nogroups] [noresources] [nosystem] [nousers]
 #	[formatjson]
 def printShowCalendars(users):
 
@@ -26113,7 +26113,7 @@ def printShowCalendars(users):
   acls = []
   getCalPermissions = noPrimary = primaryOnly = False
   excludes = set()
-  excludeDomains = []
+  excludeDomains = set()
   sortTitles = [u'primaryEmail', u'calendarId']
   csvFormat = Act.csvFormat()
   if csvFormat:
@@ -26136,8 +26136,6 @@ def printShowCalendars(users):
       pass
     elif myarg in CALENDAR_EXCLUDE_OPTIONS:
       excludes.add(myarg)
-    elif myarg == u'otherusers':
-      excludes |= CALENDAR_EXCLUDE_OPTIONS
     elif myarg == u'delimiter':
       delimiter = getCharacter()
     else:
@@ -26145,8 +26143,10 @@ def printShowCalendars(users):
   for exclude in excludes:
     if exclude == u'noprimary':
       noPrimary = True
+    elif exclude == u'nousers':
+      excludeDomains.add(GC.Values[GC.DOMAIN])
     else:
-      excludeDomains.append(CALENDAR_EXCLUDE_DOMAINS[exclude])
+      excludeDomains.add(CALENDAR_EXCLUDE_DOMAINS[exclude])
   i, count, users = getEntityArgument(users)
   for user in users:
     i += 1
@@ -26174,9 +26174,10 @@ def printShowCalendars(users):
       allCalendars = calendars[:]
       calendars = []
       for calendar in allCalendars:
-        if noPrimary and calendar.get(u'primary', False):
+        primary = calendar.get(u'primary', False)
+        if noPrimary and primary:
           continue
-        if excludeDomains:
+        if not primary and excludeDomains:
           _, domain = splitEmailAddress(calendar[u'id'])
           if domain in excludeDomains:
             continue
