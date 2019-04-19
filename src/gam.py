@@ -14818,7 +14818,7 @@ def getGroupMatchPatterns(myarg, matchPatterns):
   return True
 
 def updateFieldsForGroupMatchPatterns(matchPatterns, fieldsList, titles=None):
-  for field in ['name', 'description']:
+  for field in [u'name', u'description']:
     if matchPatterns.get(field):
       if titles is not None:
         addFieldToCSVfile(field, GROUP_FIELDS_CHOICE_MAP, fieldsList, titles)
