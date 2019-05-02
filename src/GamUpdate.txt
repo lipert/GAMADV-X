@@ -1,3 +1,8 @@
+4.82.01
+
+Enhanced `gam <UserTypeEntity> update calattendees` to provide more options.
+* https://github.com/taers232c/GAMADV-X/wiki/Users-Calendars-Events#update-calendar-event-attendees
+
 4.82.00
 
 Added `domains|domains_ns|domains_susp <DomainNameListList>` to `<UserTypeEntity>`. For users with multiple

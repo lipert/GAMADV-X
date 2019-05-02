@@ -22,7 +22,7 @@ For more information, see https://github.com/taers232c/GAMADV-X
 """
 
 __author__ = 'Ross Scroggs <ross.scroggs@gmail.com>'
-__version__ = '4.82.00'
+__version__ = '4.82.01'
 __license__ = 'Apache License 2.0 (http://www.apache.org/licenses/LICENSE-2.0)'
 
 import base64
@@ -403,25 +403,13 @@ USER_SUSPENDED_ERROR_RC = 76
 codecs.register(lambda name: codecs.lookup(UTF8) if name == 'cp65001' else None)
 
 def convertSysToUTF8(data):
-  if isinstance(data, unicode):
-    return data
   if isinstance(data, str):
     return data.decode(GM.Globals[GM.SYS_ENCODING], 'replace').encode(UTF8)
-  if isinstance(data, collections.Mapping):
-    return dict(map(convertSysToUTF8, iteritems(data)))
-  if isinstance(data, collections.Iterable):
-    return type(data)(map(convertSysToUTF8, data))
   return data
 
 def convertUTF8toSys(data):
-  if isinstance(data, str):
-    return data
   if isinstance(data, unicode):
     return data.encode(GM.Globals[GM.SYS_ENCODING], 'replace')
-  if isinstance(data, collections.Mapping):
-    return dict(map(convertUTF8toSys, iteritems(data)))
-  if isinstance(data, collections.Iterable):
-    return type(data)(map(convertUTF8toSys, data))
   return data
 
 def escapeCRsNLs(value):
@@ -1980,6 +1968,11 @@ def performActionNumItems(itemCount, itemType, i=0, count=0):
 def performActionModifierNumItems(modifier, itemCount, itemType, i=0, count=0):
   writeStdout(formatKeyValueList(Ind.Spaces(),
                                  ['{0} {1} {2} {3}'.format(Act.ToPerform(), modifier, itemCount, Ent.Choose(itemType, itemCount))],
+                                 currentCountNL(i, count)))
+
+def entityPerformAction(entityValueList, i=0, count=0):
+  writeStdout(formatKeyValueList(Ind.Spaces(),
+                                 Ent.FormatEntityValueList(entityValueList)+['{0}'.format(Act.ToPerform())],
                                  currentCountNL(i, count)))
 
 def entityPerformActionNumItems(entityValueList, itemCount, itemType, i=0, count=0):
@@ -4783,7 +4776,7 @@ def getTodriveParameters():
     try:
       result = callGAPI(drive.files(), 'get',
                         throw_reasons=[GAPI.FILE_NOT_FOUND],
-                        fileId=todrive['fileId'], fields=VX_ID_MIMETYPE_CANEDIT, supportsTeamDrives=True)
+                        fileId=todrive['fileId'], fields=VX_ID_MIMETYPE_CANEDIT, supportsAllDrives=True)
       if result['mimeType'] == MIMETYPE_GA_FOLDER:
         invalidTodriveFileIdExit(Ent.DRIVE_FILE_ID, Msg.NOT_AN_ENTITY.format(Ent.Singular(Ent.DRIVE_FILE)))
       if not result['capabilities']['canEdit']:
@@ -4800,7 +4793,7 @@ def getTodriveParameters():
       try:
         result = callGAPI(drive.files(), 'get',
                           throw_reasons=[GAPI.FILE_NOT_FOUND],
-                          fileId=todrive['parent'][3:], fields=VX_ID_MIMETYPE_CANEDIT, supportsTeamDrives=True)
+                          fileId=todrive['parent'][3:], fields=VX_ID_MIMETYPE_CANEDIT, supportsAllDrives=True)
       except GAPI.fileNotFound:
         invalidTodriveParentExit(Ent.DRIVE_FOLDER_ID, Msg.NOT_FOUND)
       if result['mimeType'] != MIMETYPE_GA_FOLDER:
@@ -4814,7 +4807,7 @@ def getTodriveParameters():
                                 throw_reasons=[GAPI.INVALID_QUERY],
                                 q="name = '{0}'".format(todrive['parent']),
                                 fields='nextPageToken,files(id,mimeType,capabilities(canEdit))',
-                                pageSize=1, supportsTeamDrives=True)
+                                pageSize=1, supportsAllDrives=True)
       except GAPI.invalidQuery:
         invalidTodriveParentExit(Ent.DRIVE_FOLDER_NAME, Msg.NOT_FOUND)
       if not results:
@@ -5038,7 +5031,8 @@ def writeCSVfile(csvRows, titles, list_type, todrive, sortTitles=None, quotechar
     closeFile(csvFile)
 
   def writeCSVToFile():
-    csvFile = openFile(GM.Globals[GM.CSVFILE][GM.REDIRECT_NAME], GM.Globals[GM.CSVFILE][GM.REDIRECT_MODE], continueOnError=True)
+    csvFile = openFile(GM.Globals[GM.CSVFILE][GM.REDIRECT_NAME], GM.Globals[GM.CSVFILE][GM.REDIRECT_MODE],
+                       continueOnError=True)
     if csvFile:
       writer = UnicodeDictWriter(csvFile, titles['list'], GM.Globals[GM.CSVFILE][GM.REDIRECT_ENCODING],
                                  extrasaction=extrasaction, quoting=csv.QUOTE_MINIMAL, quotechar=quotechar,
@@ -5079,12 +5073,12 @@ def writeCSVfile(csvRows, titles, list_type, todrive, sortTitles=None, quotechar
           result = callGAPI(drive.files(), 'create',
                             throw_reasons=[GAPI.FORBIDDEN, GAPI.INSUFFICIENT_PERMISSIONS, GAPI.FILE_NOT_FOUND, GAPI.UNKNOWN_ERROR],
                             body=body, media_body=googleapiclient.http.MediaIoBaseUpload(csvFile, mimetype='text/csv', resumable=True),
-                            fields=fields, supportsTeamDrives=True)
+                            fields=fields, supportsAllDrives=True)
         else:
           result = callGAPI(drive.files(), 'update',
                             throw_reasons=[GAPI.INSUFFICIENT_PERMISSIONS, GAPI.FILE_NOT_FOUND, GAPI.UNKNOWN_ERROR],
                             fileId=todrive['fileId'], body=body, media_body=googleapiclient.http.MediaIoBaseUpload(csvFile, mimetype='text/csv', resumable=True),
-                            fields=fields, supportsTeamDrives=True)
+                            fields=fields, supportsAllDrives=True)
         if todrive['sheet'] is not None and result['mimeType'] == MIMETYPE_GA_SPREADSHEET:
           action = Act.Get()
           _, sheet = buildGAPIServiceObject(API.SHEETS, user)
@@ -17622,6 +17616,10 @@ CALENDAR_MAX_COLOR_INDEX = 24
 CALENDAR_EVENT_MIN_COLOR_INDEX = 1
 CALENDAR_EVENT_MAX_COLOR_INDEX = 11
 
+CALENDAR_ATTENDEE_OPTIONAL_CHOICE_MAP = {
+  'optional': True,
+  'required': False,
+  }
 CALENDAR_ATTENDEE_STATUS_CHOICE_MAP = {
   'accepted': 'accepted',
   'declined': 'declined',
@@ -17670,7 +17668,7 @@ def _getCalendarEventAttribute(myarg, body, parameters, function):
   elif myarg == 'attendeestatus':
     body.setdefault('attendees', [])
     attendee = {}
-    attendee['optional'] = checkArgumentPresent('optional')
+    attendee['optional'] = getChoice(CALENDAR_ATTENDEE_OPTIONAL_CHOICE_MAP, defaultChoice=False, mapChoice=True)
     attendee['responseStatus'] = getChoice(CALENDAR_ATTENDEE_STATUS_CHOICE_MAP, defaultChoice='needsAction', mapChoice=True)
     attendee['email'] = getEmailAddress(noUid=True)
     body['attendees'].append(attendee)
@@ -26879,43 +26877,86 @@ def emptyCalendarTrash(users):
     _emptyCalendarTrash(user, cal, calIds, jcount)
     Ind.Decrement()
 
-# gam <UserTypeEntity> update calattendees <UserCalendarEntity> <EventEntity> [anyorganizer]
-#	(csv <FileName>|(gsheet <UserGoogleSheet>))* (add <EmailAddress>)* (delete <EmailAddress>)* (replace <EmailAddress> <EmailAddress>)* [doit]
+
+# gam <UserTypeEntity> update calattendees <UserCalendarEntity> <EventEntity> [anyorganizer] [<EventNotificationAttribute>] [doit]
+#	(csv <FileName>|(gsheet <UserGoogleSheet>))*
+#	(add <EmailAddress>)* (delete <EmailAddress>)* (replace <EmailAddress> <EmailAddress>)*
+#	(addstatus [<AttendeeAttendance>] [<AttendeeStatus>] <EmailAddress>)*
+#	(replacestatus [<AttendeeAttendance>] [<AttendeeStatus>] <EmailAddress> <EmailAddress>)*
+#	(updatestatus [<AttendeeAttendance>] [<AttendeeStatus>] <EmailAddress>)*
 def updateCalendarAttendees(users):
+  def getStatus(option):
+    if option.endswith('status'):
+      return(getChoice(CALENDAR_ATTENDEE_OPTIONAL_CHOICE_MAP, defaultChoice=None, mapChoice=True),
+             getChoice(CALENDAR_ATTENDEE_STATUS_CHOICE_MAP, defaultChoice=None, mapChoice=True))
+    return (None, None)
+
   calendarEntity = getUserCalendarEntity()
   calendarEventEntity = getCalendarEventEntity()
   anyOrganizer = doIt = False
-  attendee_map = {}
-  attendee_add = set()
+  parameters = {'sendUpdates': 'none'}
+  attendeeMap = {}
+  errors = 0
   while Cmd.ArgumentsRemaining():
     myarg = getArgument()
     if myarg == 'csv':
-      f, csvFile = openCSVFileReader(getString(Cmd.OB_FILE_NAME), fieldnames=['old', 'new'])
+      errors = 0
+      f, csvFile = openCSVFileReader(getString(Cmd.OB_FILE_NAME), fieldnames=['addr', 'op', 'optional', 'status'])
       for row in csvFile:
-        if row['old'] and row['new']:
-          if row['new'].lower() == 'add':
-            attendee_add.add(row['old'].lower())
-          else:
-            attendee_map[row['old'].lower()] = row['new'].lower()
+        updAddr = row['addr']
+        updOp = row['op'].lower()
+        updOptional = row['optional'].lower()
+        updStatus = row['status'].lower()
+        if not updAddr and not updOp:
+          continue
+        if (not updAddr or not updOp or
+            (updOptional and updOptional not in CALENDAR_ATTENDEE_OPTIONAL_CHOICE_MAP) or
+            (updStatus and updStatus not in CALENDAR_ATTENDEE_STATUS_CHOICE_MAP)):
+          stderrErrorMsg(Msg.INVALID_ATTENDEE_CHANGE.format(','.join([updAddr, updOp, updStatus, updOptional])))
+          errors += 1
+          continue
+        updAddr = normalizeEmailAddressOrUID(updAddr, noUid=True)
+        if updOp == 'delete':
+          attendeeMap[updAddr] = {'op': updOp, 'done': False}
+        else:
+          updOptional = CALENDAR_ATTENDEE_OPTIONAL_CHOICE_MAP[updOptional] if updOptional else None
+          updStatus = CALENDAR_ATTENDEE_STATUS_CHOICE_MAP[updStatus] if updStatus else None
+          if updOp == 'add':
+            attendeeMap[updAddr] = {'op': updOp, 'status': updStatus, 'optional': updOptional, 'done': False}
+          elif updOp == 'update':
+            attendeeMap[updAddr] = {'op': updOp, 'status': updStatus, 'optional': updOptional, 'done': False}
+          else: #replace
+            attendeeMap[updAddr] = {'op': 'replace', 'status': updStatus, 'optional': updOptional, 'email': normalizeEmailAddressOrUID(updOp, noUid=True), 'done': False}
       closeFile(f)
-    elif myarg == 'add':
-      origAttendee = getEmailAddress(noUid=True)
-      attendee_add.add(origAttendee)
     elif myarg == 'delete':
-      origAttendee = getEmailAddress(noUid=True)
-      attendee_map[origAttendee] = 'delete'
-    elif myarg == 'replace':
-      origAttendee = getEmailAddress(noUid=True)
-      attendee_map[origAttendee] = getEmailAddress(noUid=True)
-    elif myarg == 'doit':
-      doIt = True
+      updAddr = getEmailAddress(noUid=True)
+      attendeeMap[updAddr] = {'op': 'delete'}
+    elif myarg in ['add', 'addstatus']:
+      updOptional, updStatus = getStatus(myarg)
+      updAddr = getEmailAddress(noUid=True)
+      attendeeMap[updAddr] = {'op': 'add', 'status': updStatus, 'optional': updOptional, 'done': False}
+    elif myarg in ['update', 'updatestatus']:
+      updOptional, updStatus = getStatus(myarg)
+      updAddr = getEmailAddress(noUid=True)
+      attendeeMap[updAddr] = {'op': 'update', 'status': updStatus, 'optional': updOptional, 'done': False}
+    elif myarg in ['replace', 'replacestatus']:
+      updOptional, updStatus = getStatus(myarg)
+      updAddr = getEmailAddress(noUid=True)
+      newAddr = getEmailAddress(noUid=True)
+      attendeeMap[updAddr] = {'op': 'replace', 'status': updStatus, 'optional': updOptional, 'email': newAddr, 'done': False}
     elif myarg in ['anyorganizer', 'allevents']:
       anyOrganizer = True
+    elif _getCalendarSendUpdates(myarg, parameters):
+      pass
+    elif myarg == 'doit':
+      doIt = True
     else:
       unknownArgumentExit()
-  if not attendee_map and not attendee_add:
-    missingChoiceExit(['(csv <FileName>)', '(gsheet <UserGoogleSheet>)', '(add <EmailAddress>)',
-                       '(delete <EmailAddress>)', '(replace <EmailAddress> <EmailAddress>)'])
+  if not attendeeMap:
+    missingArgumentExit(Msg.UPDATE_ATTENDEE_CHANGES)
+  ucount = len(attendeeMap)
+  if errors:
+    systemErrorExit(USAGE_ERROR_RC, '')
   fieldsList = ['attendees', 'id', 'organizer', 'status', 'summary']
   i, count, users = getEntityArgument(users)
   for user in users:
@@ -26937,56 +26978,109 @@ def updateCalendarAttendees(users):
       k = 0
       for event in events:
         k += 1
-        Act.Set(Act.REPLACE)
         if event['status'] == 'cancelled':
           continue
-        event_summary = convertUTF8toSys(event.get('summary', event['id']))
         if not anyOrganizer and not event.get('organizer', {}).get('self'):
           continue
-        needs_update = False
-        if attendee_add:
-          Act.Set(Act.ADD)
-          for attendee in attendee_add:
-            event['attendees'].append({'email': attendee})
-            entityActionPerformed([Ent.EVENT, event_summary, Ent.ATTENDEE, attendee], k, kcount)
-          Act.Set(Act.UPDATE)
-          needs_update = True
+        eventSummary = event.get('summary', event['id'])
+        needsUpdate = False
+        for _, v in sorted(iteritems(attendeeMap)):
+          v['done'] = False
+        updatedAttendees = []
+        entityPerformActionNumItems([Ent.EVENT, eventSummary], ucount, Ent.ATTENDEE, k, kcount)
+        Ind.Increment()
+        u = 0
         for attendee in event.get('attendees', []):
-          if 'email' in attendee:
-            old_email = attendee['email'].lower()
-            new_email = attendee_map.get(old_email)
-            if new_email:
-              event['attendees'].remove(attendee)
-              if new_email != 'delete':
-                event['attendees'].append({'email': new_email})
-                entityModifierNewValueActionPerformed([Ent.EVENT, event_summary, Ent.ATTENDEE, old_email], Act.MODIFIER_WITH, new_email, k, kcount)
-              else:
-                Act.Set(Act.DELETE)
-                entityActionPerformed([Ent.EVENT, event_summary, Ent.ATTENDEE, old_email], k, kcount)
+          oldAddr = attendee.get('email', '').lower()
+          if not oldAddr:
+            updatedAttendees.append(attendee)
+            continue
+          update = attendeeMap.get(oldAddr)
+          if not update:
+            updatedAttendees.append(attendee)
+            continue
+          updOp = update['op']
+          if updOp == 'delete':
+            u += 1
+            update['done'] = True
+            Act.Set(Act.DELETE)
+            entityPerformAction([Ent.EVENT, eventSummary, Ent.ATTENDEE, oldAddr], u, ucount)
+            needsUpdate = True
+          else:
+            oldStatus = attendee.get('responseStatus')
+            oldOptional = attendee.get('optional', False)
+            updStatus = update['status']
+            updOptional = update['optional']
+            if updOp in ['add', 'update']:
+              u += 1
+              update['done'] = True
+              if ((updStatus is not None and updStatus != oldStatus) or
+                  (updOptional is not None and updOptional != oldOptional)):
+                if updStatus is not None and updStatus != oldStatus:
+                  attendee['responseStatus'] = updStatus
+                if updOptional is not None and updOptional != oldOptional:
+                  attendee['optional'] = updOptional
                 Act.Set(Act.UPDATE)
-              needs_update = True
-        if needs_update:
+                entityPerformAction([Ent.EVENT, eventSummary, Ent.ATTENDEE, oldAddr], u, ucount)
+                needsUpdate = True
+              else:
+                Act.Set(Act.SKIP)
+                entityPerformAction([Ent.EVENT, eventSummary, Ent.ATTENDEE, oldAddr], u, ucount)
+              updatedAttendees.append(attendee)
+            else: #replace
+              u += 1
+              update['done'] = True
+              attendee['email'] = update['email']
+              if updStatus is not None and updStatus != oldStatus:
+                attendee['responseStatus'] = updStatus
+              if updOptional is not None and updOptional != oldOptional:
+                attendee['optional'] = updOptional
+              Act.Set(Act.REPLACE)
+              entityPerformActionModifierNewValue([Ent.EVENT, eventSummary, Ent.ATTENDEE, oldAddr], Act.MODIFIER_WITH, update['email'], u, ucount)
+              updatedAttendees.append(attendee)
+              needsUpdate = True
+        for newAddr, v in sorted(iteritems(attendeeMap)):
+          if v['op'] == 'add' and not v['done']:
+            u += 1
+            v['done'] = True
+            attendee = {'email': newAddr}
+            if v['status'] is not None:
+              attendee['responseStatus'] = v['status']
+            if v['optional'] is not None:
+              attendee['optional'] = True
+            Act.Set(Act.ADD)
+            entityPerformAction([Ent.EVENT, eventSummary, Ent.ATTENDEE, newAddr], u, ucount)
+            updatedAttendees.append(attendee)
+            needsUpdate = True
+        for newAddr, v in sorted(iteritems(attendeeMap)):
+          if not v['done']:
+            u += 1
+            Act.Set(Act.SKIP)
+            entityPerformAction([Ent.EVENT, eventSummary, Ent.ATTENDEE, newAddr], u, ucount)
+        Ind.Decrement()
+        if needsUpdate:
           Act.Set(Act.UPDATE)
           if doIt:
             try:
               callGAPI(cal.events(), 'patch',
-                       throw_reasons=GAPI.CALENDAR_THROW_REASONS+[GAPI.NOT_FOUND, GAPI.FORBIDDEN],
-                       calendarId=calId, eventId=event['id'], sendUpdates='none', body={'attendees': event['attendees']}, fields='')
-              entityActionPerformed([Ent.EVENT, event_summary], j, jcount)
+                       throw_reasons=GAPI.CALENDAR_THROW_REASONS+[GAPI.NOT_FOUND, GAPI.FORBIDDEN, GAPI.INVALID],
+                       calendarId=calId, eventId=event['id'], body={'attendees': updatedAttendees},
+                       sendUpdates=parameters['sendUpdates'], fields='')
+              entityActionPerformed([Ent.EVENT, eventSummary], j, jcount)
             except GAPI.notFound as e:
               if not checkCalendarExists(cal, calId):
                 entityUnknownWarning(Ent.CALENDAR, calId, j, jcount)
                 break
               else:
-                entityActionFailedWarning([Ent.CALENDAR, calId, Ent.EVENT, event_summary], str(e), k, kcount)
-            except (GAPI.notACalendarUser, GAPI.forbidden) as e:
+                entityActionFailedWarning([Ent.CALENDAR, calId, Ent.EVENT, eventSummary], str(e), k, kcount)
+            except (GAPI.notACalendarUser, GAPI.forbidden, GAPI.invalid) as e:
               entityActionFailedWarning([Ent.CALENDAR, calId], str(e), j, jcount)
               break
             except (GAPI.serviceNotAvailable, GAPI.authError):
               entityServiceNotApplicableWarning(Ent.CALENDAR, calId, j, jcount)
               break
           else:
-            entityActionNotPerformedWarning([Ent.EVENT, event_summary], Msg.USE_DOIT_ARGUMENT_TO_PERFORM_ACTION, j, jcount)
+            entityActionNotPerformedWarning([Ent.EVENT, eventSummary], Msg.USE_DOIT_ARGUMENT_TO_PERFORM_ACTION, j, jcount)
       Ind.Decrement()
     Ind.Decrement()
 
@@ -34357,10 +34451,10 @@ def updateLabels(users):
       for label in labels['labels']:
         if label['type'] == LABEL_TYPE_SYSTEM:
           continue
-        match_result = pattern.match(convertUTF8toSys(label['name']))
+        match_result = pattern.match(label['name'])
         if match_result is not None:
           labelMatches += 1
-          newLabelName = pattern.sub(replace, convertUTF8toSys(label['name'])) if useRegexSub else replace % match_result.groups()
+          newLabelName = pattern.sub(replace, label['name']) if useRegexSub else replace % match_result.groups()
           newLabelNameLower = newLabelName.lower()
           try:
             Act.Set(Act.RENAME)
@@ -38115,9 +38209,9 @@ USER_COMMANDS_WITH_OBJECTS = {
   'sync': (Act.SYNC, {Cmd.ARG_GUARDIAN: syncGuardians}),
   'transfer': (Act.TRANSFER, {Cmd.ARG_DRIVE: transferDrive, Cmd.ARG_CALENDAR: transferCalendars, Cmd.ARG_OWNERSHIP: transferOwnership}),
   'trash': (Act.TRASH, {Cmd.ARG_DRIVEFILE: trashDriveFile, Cmd.ARG_MESSAGE: processMessages, Cmd.ARG_THREAD: processThreads}),
-  'untrash': (Act.UNTRASH, {Cmd.ARG_DRIVEFILE: untrashDriveFile, Cmd.ARG_MESSAGE: processMessages, Cmd.ARG_THREAD: processThreads}),
   'undelete': (Act.UNDELETE, {Cmd.ARG_USER: undeleteUsers}),
   'unsuspend': (Act.UNSUSPEND, {Cmd.ARG_USER: unsuspendUsers}),
+  'untrash': (Act.UNTRASH, {Cmd.ARG_DRIVEFILE: untrashDriveFile, Cmd.ARG_MESSAGE: processMessages, Cmd.ARG_THREAD: processThreads}),
   'update':
     (Act.UPDATE,
      {Cmd.ARG_BACKUPCODE:	updateBackupCodes,
