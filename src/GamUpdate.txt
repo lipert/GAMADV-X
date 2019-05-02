@@ -1,3 +1,7 @@
+4.82.02
+
+Mobile devices may have embedded newlines, encode them to avoid problems on output.
+
 4.82.01
 
 Enhanced `gam <UserTypeEntity> update calattendees` to provide more options.
