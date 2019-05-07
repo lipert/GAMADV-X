@@ -1,3 +1,9 @@
+4.82.09
+
+Code cleanup.
+
+Fixed bugs in encoding and processing csv_output_row_filter.
+
 4.82.08
 
 Handle `conflict - Conflicting requests.` error when adding/removing members to/from a group.
