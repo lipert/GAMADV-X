@@ -1,3 +1,8 @@
+4.82.11
+
+`<UniqueID>` has been added to `<UserCalendarAddEntity>` and `<UserCalendarEntity>` to allow
+specification of user calendars by their user, group or resource ID.
+
 4.82.10
 
 Fixed bug in `gam update calattendees` where an attendee's optional status was not properly set.
