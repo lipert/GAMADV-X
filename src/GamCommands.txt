@@ -176,7 +176,12 @@ If an item contains spaces, it should be surrounded by ".
 <CustomerID> ::= <String>
 <DomainAlias> ::= <String>
 <DomainName> ::= <String>(.<String>)+
-<DriveFileACLRole> ::= commenter|editor|owner|reader|writer
+<DriveFileACLRole> ::=
+        commenter|
+        editor|
+        owner|
+        reader|
+        writer
 <DriveFileID> ::= <String>
 <DriveFileURL> ::=
         https://docs.google.com/a/<DomainName>/document/d/<DriveFileID>/<String>
