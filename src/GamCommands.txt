@@ -202,6 +202,7 @@ If an item contains spaces, it should be surrounded by ".
 <EventColorIndex> ::= <Number in range 1-11>
 <EventID> ::= <String>
 <EventName> ::= <String>
+<ExportItem> ::= <UniqueID>|<String>
 <FeatureName> ::= <String>
 <FieldName> ::= <String>
 <FileName> ::= <String>
@@ -645,7 +646,9 @@ gam print projects [<EmailAddress>] [all|gam|<ProjectID>|(filter <String>)] [tod
 
 gam oauth|oauth2 create|request [<EmailAddress>]
 gam oauth|oauth2 delete|revoke
-gam oauth|oauth2 info|verify [<AccessToken>]
+gam oauth|oauth2 refresh
+gam oauth|oauth2 update
+gam oauth|oauth2 info|verify [showsecret] [accesstoken <AccessToken> idtoken <IDToken>] [showdetails]
 gam oauth|oauth2 export [<FileName>]
 gam oauth|oauth2 import <FileName>
 
@@ -940,9 +943,12 @@ gam calendar|calendars <CalendarEntity> show events <EventSelectProperty>* <Even
 gam calendar|calendars <CalendarEntity> print events <EventSelectProperty>* <EventDisplayProperty>* [fields <EventFieldNameList>]
          [formatjson] [quotechar <Character>] [todrive <ToDriveAttribute>*]
 
-gam calendar|calendars <CalendarEntity> addevent <EventCreateAttribute>+
-gam calendar|calendars <CalendarEntity> deleteevent <EventEntity> [doit] [<EventNotificationAttribute>]
-gam calendar|calendars <CalendarEntity> wipe
+gam calendar <CalendarEntity> addevent <EventCreateAttribute>+
+gam calendar <CalendarEntity> deleteevent (id|eventid <EventID>)+ [doit] [notifyattendees|(sendnotifications <Boolean>)|(sendupdates all|externalonly|none)]
+gam calendar <CalendarEntity> moveevent (id|eventid <EventID>)+ destination <CalendarItem> [notifyattendees|(sendnotifications <Boolean>)|(sendupdates all|externalonly|none)]
+gam calendar <CalendarEntity> wipe
+gam calendar <CalendarEntity> printevents <EventSelectProperty>* <EventDisplayProperty>* [fields <EventFieldNameList>]
+         [formatjson] [quotechar <Character>] [todrive <ToDriveAttribute>*]
 
 <CalendarSettings> ::=
         (description <String>)|
@@ -2127,7 +2133,7 @@ gam print schema|schemas [todrive <ToDriveAttribute>*]
 gam sendemail <EmailAddressEntity> [from <UserItem>] [replyto <EmailAddress>]
         [cc <EmailAddressEntity>] [bcc <EmailAddressEntity>] [singlemessage [<Boolean>]]
         [subject <String>] [message <String>|(file <FileName> [charset <CharSet>])]
-        (replace <Tag> <String>)* [html [<Boolean>]] (attach <FileName> [charset <CharSet>])*
+        (replace <Tag> <String>)* [html [<Boolean>]] (attach <FileName> [charset [<CharSet>])*
         [newuser <UserItem> firstname|givenname <String> lastname|familyname <string> password <Password>]
 
 # Sites
