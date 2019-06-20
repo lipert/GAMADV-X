@@ -22,7 +22,7 @@ For more information, see https://github.com/taers232c/GAMADV-X
 """
 
 __author__ = 'Ross Scroggs <ross.scroggs@gmail.com>'
-__version__ = '4.86.09'
+__version__ = '4.86.11'
 __license__ = 'Apache License 2.0 (http://www.apache.org/licenses/LICENSE-2.0)'
 
 import base64
@@ -32,6 +32,7 @@ import ConfigParser as configparser
 import cStringIO
 import csv
 import datetime
+import difflib
 from email.charset import add_charset, QP
 from email.generator import Generator
 from email.header import decode_header, Header
@@ -2966,6 +2967,9 @@ def SetGlobalVariables():
 # We're done, nothing else to do
   return False
 
+def handleServerError(e):
+  systemErrorExit(NETWORK_ERROR_RC, str(e))
+
 def getHttpObj(cache=None):
   return httplib2.Http(cache=cache,
                        ca_certs=GC.Values[GC.CACERTS_PEM],
@@ -3021,7 +3025,7 @@ def doGAMCheckForUpdates(forceCheck):
     writeFile(GM.Globals[GM.LAST_UPDATE_CHECK_TXT], str(now_time), continueOnError=True, displayError=forceCheck)
   except (httplib2.HttpLib2Error, google.auth.exceptions.TransportError) as e:
     if forceCheck:
-      systemErrorExit(NETWORK_ERROR_RC, str(e))
+      handleServerError(e)
 
 def handleOAuthTokenError(e, soft_errors):
   errMsg = str(e)
@@ -3072,19 +3076,33 @@ def getOauth2TxtCredentials(storageOnly=False, updateOnError=True):
     except IOError as e:
       systemErrorExit(FILE_ERROR_RC, e)
 
+def waitOnFailure(n, retries, error_code, error_message):
+  delta = min(2 ** n, 60)+float(random.randint(1, 1000))/1000
+  if n > 3:
+    writeStderr('Temporary error: {0} - {1}, Backing off: {2} seconds, Retry: {3}/{4}\n'.format(error_code, error_message, int(delta), n, retries))
+    flushStderr()
+  time.sleep(delta)
+  if GC.Values[GC.SHOW_API_CALLS_RETRY_DATA]:
+    incrAPICallsRetryData(error_message, delta)
+
 def getClientCredentials(forceRefresh=False):
   credentials = getOauth2TxtCredentials()
   if not credentials or credentials.invalid:
     invalidOauth2TxtExit()
   if credentials.access_token_expired or forceRefresh:
-    try:
-      credentials.refresh(getHttpObj())
-    except (httplib2.HttpLib2Error, google.auth.exceptions.TransportError) as e:
-      systemErrorExit(NETWORK_ERROR_RC, str(e))
-    except (oauth2client.client.AccessTokenRefreshError, google.auth.exceptions.RefreshError) as e:
-      if isinstance(e.args, tuple):
-        e = e.args[0]
-      handleOAuthTokenError(e, False)
+    retries = 3
+    for n in range(1, retries+1):
+      try:
+        credentials.refresh(getHttpObj())
+      except (httplib2.HttpLib2Error, google.auth.exceptions.TransportError) as e:
+        if n != retries:
+          waitOnFailure(n, retries, NETWORK_ERROR_RC, str(e))
+          continue
+        handleServerError(e)
+      except (oauth2client.client.AccessTokenRefreshError, google.auth.exceptions.RefreshError) as e:
+        if isinstance(e.args, tuple):
+          e = e.args[0]
+        handleOAuthTokenError(e, False)
   credentials.user_agent = GAM_INFO
   return credentials
 
@@ -3115,7 +3133,7 @@ def getGDataOAuthToken(gdataObj, credentials=None):
   try:
     credentials.refresh(getHttpObj())
   except (httplib2.HttpLib2Error, google.auth.exceptions.TransportError) as e:
-    systemErrorExit(NETWORK_ERROR_RC, str(e))
+    handleServerError(e)
   except oauth2client.client.AccessTokenRefreshError as e:
     if isinstance(e.args, tuple):
       e = e.args[0]
@@ -3228,15 +3246,6 @@ def checkGDataError(e, service):
   }
   return (error_code, error_code_map.get(error_code, 'Unknown Error: {0}'.format(str(e))))
 
-def waitOnFailure(n, retries, error_code, error_message):
-  delta = min(2 ** n, 60)+float(random.randint(1, 1000))/1000
-  if n > 3:
-    writeStderr('Temporary error: {0} - {1}, Backing off: {2} seconds, Retry: {3}/{4}\n'.format(error_code, error_message, int(delta), n, retries))
-    flushStderr()
-  time.sleep(delta)
-  if GC.Values[GC.SHOW_API_CALLS_RETRY_DATA]:
-    incrAPICallsRetryData(error_message, delta)
-
 def callGData(service, function,
               bailOnInternalServerError=False, soft_errors=False,
               throw_errors=None, retry_errors=None,
@@ -3287,7 +3296,10 @@ def callGData(service, function,
         return None
       systemErrorExit(SOCKET_ERROR_RC, errMsg)
     except (httplib2.HttpLib2Error, google.auth.exceptions.TransportError) as e:
-      systemErrorExit(NETWORK_ERROR_RC, str(e))
+      if n != retries:
+        waitOnFailure(n, retries, NETWORK_ERROR_RC, str(e))
+        continue
+      handleServerError(e)
     except IOError as e:
       systemErrorExit(FILE_ERROR_RC, str(e))
 
@@ -3490,7 +3502,11 @@ def callGAPI(service, function,
     except TypeError as e:
       systemErrorExit(GOOGLE_API_ERROR_RC, str(e))
     except (httplib2.HttpLib2Error, google.auth.exceptions.TransportError) as e:
-      systemErrorExit(NETWORK_ERROR_RC, str(e))
+      if n != retries:
+        service._http.connections = {}
+        waitOnFailure(n, retries, NETWORK_ERROR_RC, str(e))
+        continue
+      handleServerError(e)
     except IOError as e:
       systemErrorExit(FILE_ERROR_RC, str(e))
 
@@ -3651,7 +3667,11 @@ def getAPIversionHttpService(api):
           continue
         systemErrorExit(SOCKET_ERROR_RC, errMsg)
       except (httplib2.HttpLib2Error, google.auth.exceptions.TransportError) as e:
-        systemErrorExit(NETWORK_ERROR_RC, str(e))
+        if n != retries:
+          service._http.connections = {}
+          waitOnFailure(n, retries, NETWORK_ERROR_RC, str(e))
+          continue
+        handleServerError(e)
       except IOError as e:
         systemErrorExit(FILE_ERROR_RC, str(e))
   disc_file, discovery = readDiscoveryFile(api_version)
@@ -3678,21 +3698,27 @@ def buildGAPIObject(api):
   GM.Globals[GM.CURRENT_CLIENT_API_SCOPES] = API_Scopes.intersection(credentials.scopes)
   if api != API.OAUTH2 and not GM.Globals[GM.CURRENT_CLIENT_API_SCOPES]:
     systemErrorExit(NO_SCOPES_FOR_API_RC, Msg.NO_SCOPES_FOR_API.format(service._rootDesc['title']))
-  try:
-    service._http = credentials.authorize(httpObj)
-  except (httplib2.HttpLib2Error, google.auth.exceptions.TransportError) as e:
-    systemErrorExit(NETWORK_ERROR_RC, str(e))
-  except (oauth2client.client.AccessTokenRefreshError, google.auth.exceptions.RefreshError) as e:
-    if isinstance(e.args, tuple):
-      e = e.args[0]
-    handleOAuthTokenError(e, False)
-  if not GC.Values[GC.DOMAIN]:
-    GC.Values[GC.DOMAIN] = credentials.id_token.get('hd', 'UNKNOWN').lower()
-  if not GC.Values[GC.CUSTOMER_ID]:
-    GC.Values[GC.CUSTOMER_ID] = GC.MY_CUSTOMER
-  GM.Globals[GM.ADMIN] = credentials.id_token.get('email', 'UNKNOWN').lower()
-  GM.Globals[GM.OAUTH2_CLIENT_ID] = credentials.client_id
-  return service
+  retries = 3
+  for n in range(1, retries+1):
+    try:
+      service._http = credentials.authorize(httpObj)
+    except (oauth2client.client.AccessTokenRefreshError, google.auth.exceptions.RefreshError) as e:
+      if isinstance(e.args, tuple):
+        e = e.args[0]
+      handleOAuthTokenError(e, False)
+    except (httplib2.HttpLib2Error, google.auth.exceptions.TransportError) as e:
+      if n != retries:
+        httpObj.connections = {}
+        waitOnFailure(n, retries, NETWORK_ERROR_RC, str(e))
+        continue
+      handleServerError(e)
+    if not GC.Values[GC.DOMAIN]:
+      GC.Values[GC.DOMAIN] = credentials.id_token.get('hd', 'UNKNOWN').lower()
+    if not GC.Values[GC.CUSTOMER_ID]:
+      GC.Values[GC.CUSTOMER_ID] = GC.MY_CUSTOMER
+    GM.Globals[GM.ADMIN] = credentials.id_token.get('email', 'UNKNOWN').lower()
+    GM.Globals[GM.OAUTH2_CLIENT_ID] = credentials.client_id
+    return service
 
 # Override and wrap google_auth_httplib2 request methods so that the GAM
 # user-agent string is inserted into HTTP request headers.
@@ -3725,19 +3751,25 @@ def buildGAPIServiceObject(api, user, i=0, count=0, displayError=True):
   GM.Globals[GM.CURRENT_SVCACCT_USER] = userEmail
   credentials = getSvcAcctCredentials(GM.Globals[GM.CURRENT_SVCACCT_API_SCOPES], userEmail)
   request = google_auth_httplib2.Request(httpObj)
-  try:
-    credentials.refresh(request)
-    service._http = google_auth_httplib2.AuthorizedHttp(credentials, http=httpObj)
-  except (httplib2.HttpLib2Error, google.auth.exceptions.TransportError) as e:
-    systemErrorExit(NETWORK_ERROR_RC, str(e))
-  except google.auth.exceptions.RefreshError as e:
-    if isinstance(e.args, tuple):
-      e = e.args[0]
-    handleOAuthTokenError(e, True)
-    if displayError:
-      entityServiceNotApplicableWarning(Ent.USER, userEmail, i, count)
-    return (userEmail, None)
-  return (userEmail, service)
+  retries = 3
+  for n in range(1, retries+1):
+    try:
+      credentials.refresh(request)
+      service._http = google_auth_httplib2.AuthorizedHttp(credentials, http=httpObj)
+    except (httplib2.HttpLib2Error, google.auth.exceptions.TransportError) as e:
+      if n != retries:
+        httpObj.connections = {}
+        waitOnFailure(n, retries, NETWORK_ERROR_RC, str(e))
+        continue
+      handleServerError(e)
+    except google.auth.exceptions.RefreshError as e:
+      if isinstance(e.args, tuple):
+        e = e.args[0]
+      handleOAuthTokenError(e, True)
+      if displayError:
+        entityServiceNotApplicableWarning(Ent.USER, userEmail, i, count)
+      return (userEmail, None)
+    return (userEmail, service)
 
 def initGDataObject(gdataObj, api):
   _, _, api_version, _ = API.getVersion(api)
@@ -3775,7 +3807,7 @@ def getGDataUserCredentials(api, user, i, count):
     credentials.refresh(request)
     return (userEmail, credentials)
   except (httplib2.HttpLib2Error, google.auth.exceptions.TransportError) as e:
-    systemErrorExit(NETWORK_ERROR_RC, str(e))
+    handleServerError(e)
   except google.auth.exceptions.RefreshError as e:
     if isinstance(e.args, tuple):
       e = e.args[0]
@@ -4973,6 +5005,8 @@ def send_email(msgSubject, msgBody, msgTo, i=0, count=0, msgFrom=None, msgReplyT
   userId, gmail = buildGAPIServiceObject(API.GMAIL, msgFrom)
   if not gmail:
     return
+  if not msgTo:
+    msgTo = userId
   if not attachments:
     message = MIMEText(msgBody, ['plain', 'html'][html], charset)
   else:
@@ -5245,7 +5279,7 @@ def writeCSVfile(csvRows, titles, list_type, todrive, sortTitles=None, quotechar
         return True
     return False
 
-  def rowNotRegexFilterMatch(filterPattern):
+  def rowNotRegexFilterMatch(row, columns, filterPattern):
     for column in columns:
       if filterPattern.search(str(row.get(column, ''))):
         return False
@@ -5582,7 +5616,7 @@ def _getServerTLSUsed(location):
   try:
     httpObj.request(url, headers={'user-agent': GAM_INFO})
   except httplib2.HttpLib2Error as e:
-    systemErrorExit(NETWORK_ERROR_RC, str(e))
+    handleServerError(e)
   cipher_name, tls_ver, _ = httpObj.connections[conn].sock.cipher()
   return tls_ver, cipher_name
 
@@ -6384,7 +6418,7 @@ def _run_oauth_flow(client_id, client_secret, scopes, login_hint, access_type, s
   except httplib2.CertificateValidationUnsupported:
     noPythonSSLExit()
   except httplib2.HttpLib2Error as e:
-    systemErrorExit(NETWORK_ERROR_RC, str(e))
+    handleServerError(e)
 
 # gam oauth|oauth2 create|request [<EmailAddress>]
 def doOAuthRequest(currentScopes=None):
@@ -6611,7 +6645,7 @@ def checkServiceAccount(users):
         credentials.refresh(request)
         result = 'PASS'
       except (httplib2.HttpLib2Error, google.auth.exceptions.TransportError) as e:
-        systemErrorExit(NETWORK_ERROR_RC, str(e))
+        handleServerError(e)
       except google.auth.exceptions.RefreshError:
         result = 'FAIL'
         all_scopes_pass = False
@@ -8120,28 +8154,40 @@ def sendCreateUpdateUserNotification(notify, body, i=0, count=0, msgFrom=None, c
 
 # gam sendemail <EmailAddressEntity> [from <UserItem>] [replyto <EmailAddress>]
 #	[cc <EmailAddressEntity>] [bcc <EmailAddressEntity>] [singlemessage [<Boolean>]]
-#	[subject <String>] [message <String>|(file <FileName> [charset <CharSet>])]
+#	[subject <String>] [message|body <String>|(file <FileName> [charset <CharSet>])]
 #	(replace <Tag> <String>)* [html [<Boolean>]] (attach <FileName> [charset <CharSet>])*
 #	[newuser <EmailAddress> firstname|givenname <String> lastname|familyname <string> password <Password>]
-def doSendEmail():
+# gam <UserTypeEntity> sendemail [recipient <EmailAddressEntity>] [replyto <EmailAddress>]
+#	[cc <EmailAddressEntity>] [bcc <EmailAddressEntity>] [singlemessage [<Boolean>]]
+#	[subject <String>] [message|body <String>|(file <FileName> [charset <CharSet>])]
+#	(replace <Tag> <String>)* [html [<Boolean>]] (attach <FileName> [charset <CharSet>])*
+#	[newuser <EmailAddress> firstname|givenname <String> lastname|familyname <string> password <Password>]
+def doSendEmail(users=None):
   body = {}
   notify = {'subject': '', 'message': '', 'html': False, 'charset': UTF8}
-  msgFrom = msgReplyTo = None
+  if users is None:
+    msgFroms = [None]
+    recipients = getNormalizedEmailAddressEntity()
+  else:
+    msgFroms = users
+    recipients = [None]
   ccRecipients = []
   bccRecipients = []
+  msgReplyTo = None
   singleMessage = False
   tagReplacements = _initTagReplacements()
   attachments = []
-  recipients = getNormalizedEmailAddressEntity()
   while Cmd.ArgumentsRemaining():
     myarg = getArgument()
-    if myarg == 'from':
-      msgFrom = getString(Cmd.OB_EMAIL_ADDRESS)
+    if users is None and myarg == 'from':
+      msgFroms = [getString(Cmd.OB_EMAIL_ADDRESS)]
+    elif users is not None and myarg in ['recipient', 'recipients']:
+      recipients = getNormalizedEmailAddressEntity()
     elif myarg == 'replyto':
       msgReplyTo = getString(Cmd.OB_EMAIL_ADDRESS)
     elif myarg == 'subject':
       notify['subject'] = getString(Cmd.OB_STRING)
-    elif myarg in ['message', 'file']:
+    elif myarg in ['message', 'body', 'file']:
       notify['message'], notify['charset'] = getStringOrFile(myarg)
     elif myarg == 'cc':
       ccRecipients = getNormalizedEmailAddressEntity()
@@ -8172,27 +8218,38 @@ def doSendEmail():
     notify['message'] = _processTagReplacements(tagReplacements, notify['message'])
   if tagReplacements['tags']:
     notify['subject'] = _processTagReplacements(tagReplacements, notify['subject'])
-  count = len(recipients)
+  jcount = len(recipients)
   if body.get('primaryEmail'):
-    if (count == 1) and ('password' in body) and ('name' in body) and ('givenName' in body['name']) and ('familyName' in body['name']):
+    if ((jcount == 1) and (recipients[0] is not None) and
+        ('password' in body) and ('name' in body) and ('givenName' in body['name']) and ('familyName' in body['name'])):
       notify['emailAddress'] = recipients[0]
-      sendCreateUpdateUserNotification(notify, body, msgFrom=msgFrom)
+      sendCreateUpdateUserNotification(notify, body, msgFrom=msgFroms[0])
     else:
       usageErrorExit(Msg.NEWUSER_REQUIREMENTS, True)
     return
   if ccRecipients or bccRecipients:
     singleMessage = True
-  if singleMessage:
-    performActionModifierNumItems(Act.MODIFIER_TO, len(recipients)+len(ccRecipients)+len(bccRecipients), Ent.RECIPIENT)
-    send_email(notify['subject'], notify['message'], ','.join(recipients), 0, 0, msgFrom, msgReplyTo,
-               notify['html'], notify['charset'], attachments, ','.join(ccRecipients), ','.join(bccRecipients))
+  if users is not None:
+    i, count, msgFroms = getEntityArgument(users)
   else:
-    performActionModifierNumItems(Act.MODIFIER_TO, count, Ent.RECIPIENT)
     i = 0
-    for recipient in recipients:
-      i += 1
-      send_email(notify['subject'], notify['message'], recipient, i, count, msgFrom, msgReplyTo,
-                 notify['html'], notify['charset'], attachments)
+    count = len(msgFroms)
+  for msgFrom in msgFroms:
+    i += 1
+    if singleMessage:
+      entityPerformActionModifierNumItems([Ent.USER, msgFrom],
+                                          Act.MODIFIER_TO, jcount+len(ccRecipients)+len(bccRecipients), Ent.RECIPIENT, i, count)
+      send_email(notify['subject'], notify['message'], ','.join(recipients), 0, 0, msgFrom, msgReplyTo,
+                 notify['html'], notify['charset'], attachments, ','.join(ccRecipients), ','.join(bccRecipients))
+    else:
+      entityPerformActionModifierNumItems([Ent.USER, msgFrom], Act.MODIFIER_TO, jcount, Ent.RECIPIENT, i, count)
+      Ind.Increment()
+      j = 0
+      for recipient in recipients:
+        j += 1
+        send_email(notify['subject'], notify['message'], recipient, j, jcount, msgFrom, msgReplyTo,
+                   notify['html'], notify['charset'], attachments)
+      Ind.Decrement()
 
 ADDRESS_FIELDS_PRINT_ORDER = ['contactName', 'organizationName', 'addressLine1', 'addressLine2', 'addressLine3', 'locality', 'region', 'postalCode', 'countryCode']
 
@@ -13032,7 +13089,7 @@ def doUpdateCrOSDevices():
 CROS_TPM_VULN_VERSIONS = ['41f', '420', '628', '8520']
 CROS_TPM_FIXED_VERSIONS = ['422', '62b', '8521']
 
-def _checkTPMVulnerability(cros):
+def checkTPMVulnerability(cros):
   if 'tpmVersionInfo' in cros and 'firmwareVersion' in cros['tpmVersionInfo']:
     if cros['tpmVersionInfo']['firmwareVersion'] in CROS_TPM_VULN_VERSIONS:
       cros['tpmVersionInfo']['tpmVulnerability'] = 'VULNERABLE'
@@ -13040,6 +13097,39 @@ def _checkTPMVulnerability(cros):
       cros['tpmVersionInfo']['tpmVulnerability'] = 'UPDATED'
     else:
       cros['tpmVersionInfo']['tpmVulnerability'] = 'NOT IMPACTED'
+
+FN_CROS_AUE_DATES_JSON = 'cros-aue-dates.json'
+
+def readCrOSAUEDates():
+  disc_filename = FN_CROS_AUE_DATES_JSON
+  disc_file = os.path.join(GM.Globals[GM.GAM_PATH], disc_filename)
+  if hasattr(sys, '_MEIPASS'):
+    json_string = readFile(os.path.join(sys._MEIPASS, disc_filename), continueOnError=True, displayError=True)
+  elif os.path.isfile(disc_file):
+    json_string = readFile(disc_file, continueOnError=True, displayError=True)
+  else:
+    json_string = None
+  if json_string:
+    try:
+      GM.Globals[GM.CROS_AUE_DATES] = json.loads(json_string)
+      return True
+    except ValueError:
+      pass
+  stderrErrorMsg(Msg.DOES_NOT_EXIST_OR_HAS_INVALID_FORMAT.format(Ent.Singular(Ent.CROS_AUE_DATES_JSON_FILE), disc_filename))
+  return False
+
+def guessCrosAUEDate(cros, guessedAUEs):
+  crosModel = cros.get('model')
+  if crosModel:
+    if crosModel not in guessedAUEs:
+      closest_match = difflib.get_close_matches(crosModel, GM.Globals[GM.CROS_AUE_DATES], n=1)
+      if closest_match:
+        guessedAUEs[crosModel] = {'guessedAUEDate': GM.Globals[GM.CROS_AUE_DATES][closest_match[0]],
+                                  'guessedAUEModel': closest_match[0]}
+      else:
+        guessedAUEs[crosModel] = {'guessedAUEDate': u'',
+                                  'guessedAUEModel': u''}
+    cros.update(guessedAUEs[crosModel])
 
 def _filterTimeRanges(activeTimeRanges, startDate, endDate):
   if startDate is None and endDate is None:
@@ -13129,6 +13219,8 @@ CROS_SCALAR_PROPERTY_PRINT_ORDER = [
   'lastEnrollmentTime',
   'orderNumber',
   'supportEndDate',
+  'guessedAUEDate',
+  'guessedAUEModel',
   'willAutoRenew',
   ]
 
@@ -13145,7 +13237,7 @@ CROS_LISTS_ARGUMENTS = (CROS_ACTIVE_TIME_RANGES_ARGUMENTS+CROS_RECENT_USERS_ARGU
 CROS_START_ARGUMENTS = ['start', 'startdate', 'oldestdate']
 CROS_END_ARGUMENTS = ['end', 'enddate']
 
-# gam <CrOSTypeEntity> info [nolists] [listlimit <Number>] [start <Date>] [end <Date>]
+# gam <CrOSTypeEntity> info [guessaue] [nolists] [listlimit <Number>] [start <Date>] [end <Date>]
 #	[basic|full|allfields] <CrOSFieldName>* [fields <CrOSFieldNameList>] [downloadfile latest|<Time>] [targetfolder <FilePath>] [formatjson]
 def infoCrOSDevices(entityList):
   cd = buildGAPIObject(API.DIRECTORY)
@@ -13153,7 +13245,8 @@ def infoCrOSDevices(entityList):
   targetFolder = GC.Values[GC.DRIVE_DIR]
   projection = None
   fieldsList = []
-  noLists = False
+  guessAUE = noLists = False
+  guessedAUEs = {}
   FJQC = FormatJSONQuoteChar()
   listLimit = 0
   startDate = endDate = startTime = endTime = None
@@ -13163,6 +13256,8 @@ def infoCrOSDevices(entityList):
       noLists = True
     elif myarg == 'listlimit':
       listLimit = getInteger(minVal=0)
+    elif myarg == 'guessaue':
+      guessAUE = readCrOSAUEDates()
     elif myarg in CROS_START_ARGUMENTS:
       startDate, startTime = _getFilterDateTime()
     elif myarg in CROS_END_ARGUMENTS:
@@ -13202,8 +13297,12 @@ def infoCrOSDevices(entityList):
         os.makedirs(targetFolder)
     else:
       FJQC.getFormatJSON(myarg)
-  if downloadfile and fieldsList:
-    fieldsList.append('deviceFiles.downloadUrl')
+  if fieldsList:
+    fieldsList.append('deviceId')
+    if guessAUE:
+      fieldsList.append('model')
+    if downloadfile:
+      fieldsList.append('deviceFiles.downloadUrl')
   fields = ','.join(set(fieldsList)).replace('.', '/') if fieldsList else None
   i, count, entityList = getEntityArgument(entityList)
   for deviceId in entityList:
@@ -13215,7 +13314,9 @@ def infoCrOSDevices(entityList):
     except (GAPI.badRequest, GAPI.resourceNotFound, GAPI.forbidden):
       checkEntityAFDNEorAccessErrorExit(cd, Ent.CROS_DEVICE, deviceId, i, count)
       continue
-    _checkTPMVulnerability(cros)
+    checkTPMVulnerability(cros)
+    if guessAUE:
+      guessCrosAUEDate(cros, guessedAUEs)
     if FJQC.formatJSON:
       printLine(json.dumps(cleanJSON(cros, timeObjects=CROS_TIME_OBJECTS), ensure_ascii=False, sort_keys=True))
       continue
@@ -13488,16 +13589,17 @@ CROS_ORDERBY_CHOICE_MAP = {
   'user': 'annotatedUser',
   }
 
-CROS_INDEXED_FIELDS = ['activeTimeRanges', 'recentUsers', 'deviceFiles',
+CROS_INDEXED_TITLES = ['activeTimeRanges', 'recentUsers', 'deviceFiles',
                        'cpuStatusReports', 'diskVolumeReports', 'systemRamFreeReports']
 
 # gam print cros [todrive <ToDriveAttributes>*]
 #	[(query <QueryCrOS>)|(queries <QueryCrOSList>)|(select <CrOSTypeEntity>)] [limittoou <OrgUnitItem>]
-#	[querytime.* <Time>]
+#	[querytime.* <Time>] [guessaue]
 #	[orderby <CrOSOrderByFieldName> [ascending|descending]] [nolists|<DrOSListFieldName>*] [listlimit <Number>] [start <Date>] [end <Date>]
 #	[basic|full|allfields] <CrOSFieldName>* [fields <CrOSFieldNameList>] [sortheaders] [formatjson] [quotechar <Character>]
 #
 # gam <CrOSTypeEntity> print cros [todrive <ToDriveAttributes>*]
+#	[guessaue]
 #	[orderby <CrOSOrderByFieldName> [ascending|descending]] [nolists|<DrOSListFieldName>*] [listlimit <Number>] [start <Date>] [end <Date>]
 #	[basic|full|allfields] <CrOSFieldName>* [fields <CrOSFieldNameList>] [sortheaders] [formatjson] [quotechar <Character>]
 def doPrintCrOSDevices(entityList=None):
@@ -13516,7 +13618,9 @@ def doPrintCrOSDevices(entityList=None):
       selectedLists['systemRamFreeReports'] = True
 
   def _printCrOS(cros):
-    _checkTPMVulnerability(cros)
+    checkTPMVulnerability(cros)
+    if guessAUE:
+      guessCrosAUEDate(cros, guessedAUEs)
     if FJQC.formatJSON:
       csvRows.append({'deviceId': cros['deviceId'],
                       'JSON': json.dumps(cleanJSON(cros, listLimit=listLimit, timeObjects=CROS_TIME_OBJECTS), ensure_ascii=False, sort_keys=True)})
@@ -13612,7 +13716,8 @@ def doPrintCrOSDevices(entityList=None):
   startDate = endDate = startTime = endTime = None
   selectedLists = {}
   queryTimes = {}
-  noLists = sortHeaders = False
+  guessAUE = noLists = sortHeaders = False
+  guessedAUEs = {}
   FJQC = FormatJSONQuoteChar()
   while Cmd.ArgumentsRemaining():
     myarg = getArgument()
@@ -13633,6 +13738,8 @@ def doPrintCrOSDevices(entityList=None):
       selectedLists = {}
     elif myarg == 'listlimit':
       listLimit = getInteger(minVal=0)
+    elif myarg == 'guessaue':
+      guessAUE = readCrOSAUEDates()
     elif myarg in CROS_START_ARGUMENTS:
       startDate, startTime = _getFilterDateTime()
     elif myarg in CROS_END_ARGUMENTS:
@@ -13672,6 +13779,8 @@ def doPrintCrOSDevices(entityList=None):
       addFieldToFieldsList(selectList, CROS_FIELDS_CHOICE_MAP, fieldsList)
   if fieldsList:
     fieldsList.append('deviceId')
+    if guessAUE:
+      fieldsList.append('model')
   _, _, entityList = getEntityArgument(entityList)
   if FJQC.formatJSON:
     sortHeaders = False
@@ -13740,7 +13849,7 @@ def doPrintCrOSDevices(entityList=None):
   if sortRows and orderBy and orderBy in titles['set']:
     csvRows.sort(key=lambda k: k[orderBy], reverse=sortOrder == 'DESCENDING')
   writeCSVfile(csvRows, titles, 'CrOS', todrive, ['deviceId'] if sortHeaders else None,
-               FJQC.quoteChar, indexedFields=CROS_INDEXED_FIELDS)
+               FJQC.quoteChar, indexedFields=CROS_INDEXED_TITLES)
 
 CROS_ACTIVITY_TIME_OBJECTS = set(['createTime'])
 
@@ -15340,7 +15449,7 @@ def getGroupFilters(myarg, kwargs):
   if myarg == 'domain':
     kwargs['domain'] = getString(Cmd.OB_DOMAIN_NAME).lower()
     kwargs.pop('customer', None)
-  elif myarg == 'member':
+  elif myarg in ['member', 'showownedby']:
     kwargs['userKey'] = getEmailAddress()
     kwargs.pop('customer', None)
   elif myarg == 'query':
@@ -15350,6 +15459,15 @@ def getGroupFilters(myarg, kwargs):
   if kwargs.get('userKey') and kwargs.get('query'):
     usageErrorExit(Msg.ARE_MUTUALLY_EXCLUSIVE.format('member', 'query'))
   return True
+
+def setGroupShowOwnedBy(kwargs):
+  return ('email' if kwargs['userKey'].find('@') != -1 else 'id', kwargs['userKey'])
+
+def checkGroupShowOwnedBy(showOwnedBy, members):
+  for member in members:
+    if (member.get('role', Ent.ROLE_MEMBER) == Ent.ROLE_OWNER) and (member.get(showOwnedBy[0], '').lower() == showOwnedBy[1]):
+      return True
+  return False
 
 def getGroupMatchPatterns(myarg, matchPatterns):
   if myarg == 'emailmatchpattern':
@@ -15387,6 +15505,7 @@ PRINT_GROUPS_JSON_TITLES = ['email', 'JSON']
 
 # gam print groups [todrive <ToDriveAttributes>*] ([domain <DomainName>] ([member <UserItem>]|[query <QueryGroup>]))|[select <GroupEntity>] [notsuspended|suspended]
 #	[emailmatchpattern <RegularExpression>] [namematchpattern <RegularExpression>] [descriptionmatchpattern <RegularExpression>] (matchsetting [not] <GroupAttributes>)*
+#	[showownedby <UserItem>]
 #	[maxresults <Number>] [allfields|([basic] [settings] <GroupFieldName>* [fields <GroupFieldNameList>])] [nodeprecated]
 #	[members|memberscount] [managers|managerscount] [owners|ownerscount] [countsonly]
 #	[convertcrnl] [delimiter <Character>] [sortheaders] [formatjson] [quotechar <Character>]
@@ -15403,6 +15522,8 @@ def doPrintGroups():
           return
         if match['values'] and gvalue not in match['values']:
           return
+    if showOwnedBy and not checkGroupShowOwnedBy(showOwnedBy, groupMembers):
+      return
     if deprecatedAttributesSet and isinstance(groupSettings, dict):
       deprecatedKeys = []
       for key in groupSettings:
@@ -15589,7 +15710,7 @@ def doPrintGroups():
   groupFieldsLists = {'cd': ['email'], 'gs': []}
   titles, csvRows = initializeTitlesCSVfile(groupFieldsLists['cd'])
   rolesSet = set()
-  entitySelection = isSuspended = None
+  entitySelection = isSuspended = showOwnedBy = None
   matchPatterns = {}
   matchSettings = {}
   deprecatedAttributesSet = set()
@@ -15598,7 +15719,9 @@ def doPrintGroups():
     if myarg == 'todrive':
       todrive = getTodriveParameters()
     elif getGroupFilters(myarg, kwargs):
-      pass
+      if myarg == 'showownedby':
+        showOwnedBy = setGroupShowOwnedBy(kwargs)
+        rolesSet.add(Ent.ROLE_OWNER)
     elif getGroupMatchPatterns(myarg, matchPatterns):
       pass
     elif myarg == 'select':
@@ -15971,6 +16094,7 @@ GROUPMEMBERS_DEFAULT_FIELDS = ['group', 'type', 'role', 'id', 'status', 'email']
 # gam print group-members|groups-members [todrive <ToDriveAttributes>*]
 #	([domain <DomainName>] ([member <UserItem>]|[query <QueryGroup>]))|[group|group_ns|group_susp <GroupItem>]|[select <GroupEntity>] [notsuspended|suspended]
 #	[emailmatchpattern <RegularExpression>] [namematchpattern <RegularExpression>] [descriptionmatchpattern <RegularExpression>]
+#	[showownedby <UserItem>]
 #	[roles <GroupRoleList>] [members] [managers] [owners] [membernames] <MembersFieldName>* [fields <MembersFieldNameList>]
 #	[userfields <UserFieldNameList>] [recursive [noduplicates]] [nogroupemail]
 #	[peoplelookup|(peoplelookupuser <EmailAddress>)]
@@ -15999,7 +16123,7 @@ def doPrintGroupMembers():
   subTitle = '{0} {1}'.format(Msg.ALL, Ent.Plural(Ent.GROUP))
   fieldsList = []
   titles, csvRows = initializeTitlesCSVfile('group')
-  entityList = None
+  entityList = showOwnedBy = None
   cdfieldsList = ['email']
   userFieldsList = []
   rolesSet = set()
@@ -16009,7 +16133,9 @@ def doPrintGroupMembers():
     if myarg == 'todrive':
       todrive = getTodriveParameters()
     elif getGroupFilters(myarg, kwargs):
-      pass
+      if myarg == 'showownedby':
+        showOwnedBy = setGroupShowOwnedBy(kwargs)
+        rolesSet.add(Ent.ROLE_OWNER)
     elif getGroupMatchPatterns(myarg, matchPatterns):
       pass
     elif myarg in ['group', 'groupns', 'groususp']:
@@ -16117,6 +16243,8 @@ def doPrintGroupMembers():
       continue
     membersList = []
     getGroupMembers(cd, groupEmail, memberRoles, membersList, membersSet, i, count, memberOptions, level)
+    if showOwnedBy and not checkGroupShowOwnedBy(showOwnedBy, membersList):
+      continue
     for member in membersList:
       memberId = member['id']
       row = {}
@@ -16178,6 +16306,7 @@ def doPrintGroupMembers():
 # gam show group-members
 #	([domain <DomainName>] ([member <UserItem>]|[query <QueryGroup>]))|[group|group_ns|group_susp <GroupItem>]|[select <GroupEntity>] [notsuspended|suspended]
 #	[emailmatchpattern <RegularExpression>] [namematchpattern <RegularExpression>] [descriptionmatchpattern <RegularExpression>]
+#	[showownedby <UserItem>]
 #	[roles <GroupRoleList>] [members] [managers] [owners] [depth <Number>]
 def doShowGroupMembers():
   def _roleOrder(key):
@@ -16194,6 +16323,8 @@ def doShowGroupMembers():
       membersList = callGAPIpages(cd.members(), 'list', 'members',
                                   throw_reasons=GAPI.MEMBERS_THROW_REASONS, retry_reasons=GAPI.MEMBERS_RETRY_REASONS,
                                   groupKey=groupEmail, fields='nextPageToken,members(email,id,role,status,type)', maxResults=GC.Values[GC.MEMBER_MAX_RESULTS])
+      if showOwnedBy and not checkGroupShowOwnedBy(showOwnedBy, membersList):
+        return
     except (GAPI.groupNotFound, GAPI.domainNotFound, GAPI.domainCannotUseApis, GAPI.invalid, GAPI.forbidden):
       if depth == 0:
         entityUnknownWarning(Ent.GROUP, groupEmail, i, count)
@@ -16212,7 +16343,7 @@ def doShowGroupMembers():
   cd = buildGAPIObject(API.DIRECTORY)
   customerKey = GC.Values[GC.CUSTOMER_ID]
   kwargs = {'customer': customerKey}
-  entityList = None
+  entityList = showOwnedBy = None
   cdfieldsList = ['email']
   rolesSet = set()
   memberOptions = _initMemberOptions()
@@ -16221,7 +16352,9 @@ def doShowGroupMembers():
   while Cmd.ArgumentsRemaining():
     myarg = getArgument()
     if getGroupFilters(myarg, kwargs):
-      pass
+      if myarg == 'showownedby':
+        showOwnedBy = setGroupShowOwnedBy(kwargs)
+        rolesSet.add(Ent.ROLE_OWNER)
     elif getGroupMatchPatterns(myarg, matchPatterns):
       pass
     elif myarg in ['group', 'groupns', 'groupsusp']:
@@ -31810,32 +31943,52 @@ def transferDrive(users):
         userSvcNotApplicableOrDriveDisabled(actionUser, str(e), i, count)
     else:
       Act.Set(Act.PROCESS)
-      childEntryInfo['sourcePermission'] = nonOwnerRetainRoleBody
+      for permission in childEntryInfo.get('permissions', []):
+        if sourcePermissionId == permission['id']:
+          childEntryInfo['sourcePermission'] = _setUpdateRole(permission)
+          getSourcePermissionFromOwner = False
+          break
+      else:
+        childEntryInfo['sourcePermission'] = nonOwnerRetainRoleBody
+        getSourcePermissionFromOwner = True
+      for permission in childEntryInfo.get('permissions', []):
+        if targetPermissionId == permission['id']:
+          childEntryInfo['targetPermission'] = _setUpdateRole(permission)
+          getTargetPermissionFromOwner = False
+          break
+      else:
+        childEntryInfo['targetPermission'] = {'role': 'none'}
+        getTargetPermissionFromOwner = True
       ownerUser, ownerDrive = _getOwnerUser(childEntryInfo)
       if not ownerDrive:
         entityActionNotPerformedWarning([Ent.USER, sourceUser, childFileType, childFileName],
                                         Msg.SERVICE_NOT_APPLICABLE_THIS_ADDRESS.format(ownerUser), j, jcount)
         return
-      try:
-        permissions = callGAPIpages(ownerDrive.permissions(), 'list', VX_PAGES_PERMISSIONS,
-                                    throw_reasons=GAPI.DRIVE_ACCESS_THROW_REASONS,
-                                    fileId=childFileId, fields=VX_NPT_PERMISSIONS)
-      except (GAPI.fileNotFound, GAPI.forbidden, GAPI.internalError, GAPI.insufficientFilePermissions, GAPI.unknownError, GAPI.badRequest) as e:
-        entityActionFailedWarning([Ent.USER, ownerUser, childFileType, childFileName], str(e), j, jcount)
-        return
-      except (GAPI.serviceNotAvailable, GAPI.authError, GAPI.domainPolicy) as e:
-        userSvcNotApplicableOrDriveDisabled(ownerUser, str(e), i, count)
-        return
-      for permission in permissions:
-        if sourcePermissionId == permission['id']:
-          childEntryInfo['sourcePermission'] = _setUpdateRole(permission)
-          break
-      for permission in permissions:
-        if targetPermissionId == permission['id']:
-          childEntryInfo['targetPermission'] = _setUpdateRole(permission)
-          break
-      else:
-        childEntryInfo['targetPermission'] = {'role': 'none'}
+      if getSourcePermissionFromOwner or getTargetPermissionFromOwner:
+        try:
+          permissions = callGAPIpages(ownerDrive.permissions(), 'list', VX_PAGES_PERMISSIONS,
+                                      throw_reasons=GAPI.DRIVE_ACCESS_THROW_REASONS,
+                                      fileId=childFileId, fields=VX_NPT_PERMISSIONS)
+          if getSourcePermissionFromOwner:
+            for permission in permissions:
+              if sourcePermissionId == permission['id']:
+                childEntryInfo['sourcePermission'] = _setUpdateRole(permission)
+                break
+            else:
+              childEntryInfo['sourcePermission'] = nonOwnerRetainRoleBody
+          if getTargetPermissionFromOwner:
+            for permission in permissions:
+              if targetPermissionId == permission['id']:
+                childEntryInfo['targetPermission'] = _setUpdateRole(permission)
+                break
+            else:
+              childEntryInfo['targetPermission'] = {'role': 'none'}
+        except (GAPI.fileNotFound, GAPI.forbidden, GAPI.internalError, GAPI.insufficientFilePermissions, GAPI.unknownError, GAPI.badRequest) as e:
+          entityActionFailedWarning([Ent.USER, ownerUser, childFileType, childFileName], str(e), j, jcount)
+          return
+        except (GAPI.serviceNotAvailable, GAPI.authError, GAPI.domainPolicy) as e:
+          userSvcNotApplicableOrDriveDisabled(ownerUser, str(e), i, count)
+          return
       if csvFormat:
         csvRows.append({'OldOwner': sourceUser, 'NewOwner': targetUser, 'type': Ent.Singular(childFileType),
                         'id': childFileId, VX_FILENAME: childFileName, 'role': _canonicalRole(childEntryInfo['sourcePermission'])})
@@ -38435,6 +38588,7 @@ USER_COMMANDS = {
   'pop': (Act.SET, setPop),
   'profile': (Act.SET, setProfile),
   'sendas': (Act.ADD, createSendAs),
+  'sendemail': (Act.SENDEMAIL, doSendEmail),
   'shortcuts': (Act.SET, setShortCuts),
   'signature': (Act.SET, setSignature),
   'snippets': (Act.SET, setSnippets),
