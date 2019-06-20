@@ -8239,7 +8239,7 @@ def doSendEmail(users=None):
     if singleMessage:
       entityPerformActionModifierNumItems([Ent.USER, msgFrom],
                                           Act.MODIFIER_TO, jcount+len(ccRecipients)+len(bccRecipients), Ent.RECIPIENT, i, count)
-      send_email(notify['subject'], notify['message'], ','.join(recipients), 0, 0, msgFrom, msgReplyTo,
+      send_email(notify['subject'], notify['message'], ','.join(recipients), i, count, msgFrom, msgReplyTo,
                  notify['html'], notify['charset'], attachments, ','.join(ccRecipients), ','.join(bccRecipients))
     else:
       entityPerformActionModifierNumItems([Ent.USER, msgFrom], Act.MODIFIER_TO, jcount, Ent.RECIPIENT, i, count)
