@@ -22,7 +22,7 @@ For more information, see https://github.com/taers232c/GAMADV-X
 """
 
 __author__ = 'Ross Scroggs <ross.scroggs@gmail.com>'
-__version__ = '4.86.11'
+__version__ = '4.86.12'
 __license__ = 'Apache License 2.0 (http://www.apache.org/licenses/LICENSE-2.0)'
 
 import base64
@@ -1259,8 +1259,10 @@ def getStringReturnInList(item):
     return [argstr]
   return []
 
+FILE_ARGUMENTS = ['file', 'textfile', 'htmlfile']
+
 def getStringOrFile(myarg, minLen=0):
-  if myarg == 'file' or checkArgumentPresent('file'):
+  if myarg in FILE_ARGUMENTS or (not myarg and checkArgumentPresent(FILE_ARGUMENTS)):
     filename = getString(Cmd.OB_FILE_NAME)
     encoding = getCharSet()
     return (readFile(filename, encoding=encoding), encoding)
@@ -8161,12 +8163,12 @@ def sendCreateUpdateUserNotification(notify, body, i=0, count=0, msgFrom=None, c
 
 # gam sendemail <EmailAddressEntity> [from <UserItem>] [replyto <EmailAddress>]
 #	[cc <EmailAddressEntity>] [bcc <EmailAddressEntity>] [singlemessage [<Boolean>]]
-#	[subject <String>] [message|body <String>|(file <FileName> [charset <CharSet>])]
+#	[subject <String>] [(message <String>)|(file <FileName> [charset <CharSet>])]
 #	(replace <Tag> <String>)* [html [<Boolean>]] (attach <FileName> [charset <CharSet>])*
 #	[newuser <EmailAddress> firstname|givenname <String> lastname|familyname <string> password <Password>]
 # gam <UserTypeEntity> sendemail [recipient <EmailAddressEntity>] [replyto <EmailAddress>]
 #	[cc <EmailAddressEntity>] [bcc <EmailAddressEntity>] [singlemessage [<Boolean>]]
-#	[subject <String>] [message|body <String>|(file <FileName> [charset <CharSet>])]
+#	[subject <String>] [(message <String>)|(file <FileName> [charset <CharSet>])]
 #	(replace <Tag> <String>)* [html [<Boolean>]] (attach <FileName> [charset <CharSet>])*
 #	[newuser <EmailAddress> firstname|givenname <String> lastname|familyname <string> password <Password>]
 def doSendEmail(users=None):
@@ -8188,14 +8190,18 @@ def doSendEmail(users=None):
     myarg = getArgument()
     if users is None and myarg == 'from':
       msgFroms = [getString(Cmd.OB_EMAIL_ADDRESS)]
-    elif users is not None and myarg in ['recipient', 'recipients']:
+    elif users is not None and myarg in ['recipient', 'recipients', 'to']:
       recipients = getNormalizedEmailAddressEntity()
     elif myarg == 'replyto':
       msgReplyTo = getString(Cmd.OB_EMAIL_ADDRESS)
     elif myarg == 'subject':
       notify['subject'] = getString(Cmd.OB_STRING)
-    elif myarg in ['message', 'body', 'file']:
+    elif myarg in ['message', 'textmessage', 'file', 'textfile']:
       notify['message'], notify['charset'] = getStringOrFile(myarg)
+      notify['html'] = False
+    elif myarg in ['htmlmessage', 'htmlfile']:
+      notify['message'], notify['charset'] = getStringOrFile(myarg)
+      notify['html'] = True
     elif myarg == 'cc':
       ccRecipients = getNormalizedEmailAddressEntity()
     elif myarg == 'bcc':
@@ -11927,6 +11933,25 @@ def clearEmailAddressMatches(contactsManager, contactClear, fields):
     fields[CONTACT_EMAILS] = savedAddresses
   return updateRequired
 
+def dedupEmailAddressMatches(contactsManager, emailMatchType, fields):
+  savedAddresses = []
+  matches = {}
+  updateRequired = False
+  for item in fields.get(CONTACT_EMAILS, []):
+    emailAddr = item['value']
+    emailType = item.get('label')
+    if emailType is None:
+      emailType = contactsManager.CONTACT_ARRAY_PROPERTIES[CONTACT_EMAILS]['relMap'].get(item['rel'], 'custom')
+    if (emailAddr in matches) and (not emailMatchType or emailType in matches[emailAddr]):
+      updateRequired = True
+    else:
+      savedAddresses.append(item)
+      matches.setdefault(emailAddr, set())
+      matches[emailAddr].add(emailType)
+  if updateRequired:
+    fields[CONTACT_EMAILS] = savedAddresses
+  return updateRequired
+
 def getContactGroupsInfo(contactsManager, contactsObject, entityType, entityName, i, count):
   uri = contactsObject.GetContactGroupFeedUri(contact_list=entityName)
   contactGroupIDs = {}
@@ -11950,7 +11975,8 @@ def getContactGroupsInfo(contactsManager, contactsObject, entityType, entityName
     return (contactGroupIDs, False)
   return (contactGroupIDs, contactGroupNames)
 
-def validateContactGroup(contactsManager, contactsObject, contactGroupName, contactGroupIDs, contactGroupNames, entityType, entityName, i, count):
+def validateContactGroup(contactsManager, contactsObject, contactGroupName,
+                         contactGroupIDs, contactGroupNames, entityType, entityName, i, count):
   if not contactGroupNames:
     contactGroupIDs, contactGroupNames = getContactGroupsInfo(contactsManager, contactsObject, entityType, entityName, i, count)
     if contactGroupNames is False:
@@ -11971,7 +11997,8 @@ def validateContactGroupsList(contactsManager, contactsObject, contactId, fields
   contactGroupIDs = contactGroupNames = None
   contactGroupsList = []
   for contactGroup in fields[CONTACT_GROUPS_LIST]:
-    groupId, contactGroupIDs, contactGroupNames = validateContactGroup(contactsManager, contactsObject, contactGroup, contactGroupIDs, contactGroupNames, entityType, entityName, i, count)
+    groupId, contactGroupIDs, contactGroupNames = validateContactGroup(contactsManager, contactsObject, contactGroup,
+                                                                       contactGroupIDs, contactGroupNames, entityType, entityName, i, count)
     if groupId:
       contactGroupsList.append(groupId)
     else:
@@ -12046,7 +12073,8 @@ def _clearUpdateContacts(users, entityType, updateContacts):
     if not contactsObject:
       continue
     if contactQuery['contactGroup']:
-      groupId, _, contactGroupNames = validateContactGroup(contactsManager, contactsObject, contactQuery['contactGroup'], None, None, entityType, user, i, count)
+      groupId, _, contactGroupNames = validateContactGroup(contactsManager, contactsObject, contactQuery['contactGroup'],
+                                                           None, None, entityType, user, i, count)
       if not groupId:
         if contactGroupNames:
           entityActionFailedWarning([entityType, user, Ent.CONTACT_GROUP, contactQuery['contactGroup']], Msg.DOES_NOT_EXIST, i, count)
@@ -12123,14 +12151,6 @@ def _clearUpdateContacts(users, entityType, updateContacts):
         break
     Ind.Decrement()
 
-# gam <UserTypeEntity> update contacts <ContactEntity>|(<UserContactSelection> [endquery]) [contactgroup <ContactGroupItem>] <ContactAttribute>+
-def updateUserContacts(users):
-  _clearUpdateContacts(users, Ent.USER, True)
-
-# gam update contacts <ContactEntity>|<ContactSelection> <ContactAttributes>+
-def doUpdateDomainContacts():
-  _clearUpdateContacts([GC.Values[GC.DOMAIN]], Ent.DOMAIN, True)
-
 # gam <UserTypeEntity> clear contacts <ContactEntity>|<UserContactSelection>
 #	[clearmatchpattern <RegularExpression>] [clearmatchtype work|home|other|<String>]
 #	[deleteclearedcontactswithnoemails]
@@ -12140,8 +12160,89 @@ def clearUserContacts(users):
 # gam clear contacts <ContactEntity>|<ContactSelection>
 #	[clearmatchpattern <RegularExpression>] [clearmatchtype work|home|other|<String>]
 #	[deleteclearedcontactswithnoemails]
-def doClearDomainContacts(users):
-  _clearUpdateContacts(users, Ent.USER, False)
+def doClearDomainContacts():
+  _clearUpdateContacts([GC.Values[GC.DOMAIN]], Ent.DOMAIN, False)
+
+# gam <UserTypeEntity> update contacts <ContactEntity>|(<UserContactSelection> [endquery]) [contactgroup <ContactGroupItem>] <ContactAttribute>+
+def updateUserContacts(users):
+  _clearUpdateContacts(users, Ent.USER, True)
+
+# gam update contacts <ContactEntity>|<ContactSelection> <ContactAttributes>+
+def doUpdateDomainContacts():
+  _clearUpdateContacts([GC.Values[GC.DOMAIN]], Ent.DOMAIN, True)
+
+def _dedupContacts(users, entityType):
+  contactsManager = ContactsManager()
+  contactQuery = _initContactQueryAttributes()
+  emailMatchType = False
+  while Cmd.ArgumentsRemaining():
+    myarg = getArgument()
+    if myarg == 'matchtype':
+      emailMatchType = getBoolean()
+    else:
+      _getContactQueryAttributes(contactQuery, myarg, entityType, -1, False)
+  i, count, users = getEntityArgument(users)
+  for user in users:
+    i += 1
+    user, contactsObject = getContactsObject(entityType, user, i, count)
+    if not contactsObject:
+      continue
+    if contactQuery['contactGroup']:
+      groupId, _, contactGroupNames = validateContactGroup(contactsManager, contactsObject, contactQuery['contactGroup'],
+                                                           None, None, entityType, user, i, count)
+      if not groupId:
+        if contactGroupNames:
+          entityActionFailedWarning([entityType, user, Ent.CONTACT_GROUP, contactQuery['contactGroup']], Msg.DOES_NOT_EXIST, i, count)
+        continue
+      contactQuery['group'] = contactsObject.GetContactGroupFeedUri(contact_list=user, projection='base', groupId=groupId)
+    contacts = queryContacts(contactsObject, contactQuery, entityType, user, i, count)
+    if contacts is None:
+      continue
+    j = 0
+    jcount = len(contacts)
+    entityPerformActionModifierNumItems([entityType, user], Msg.MAXIMUM_OF, jcount, Ent.CONTACT, i, count)
+    if jcount == 0:
+      setSysExitRC(NO_ENTITIES_FOUND)
+      continue
+    Ind.Increment()
+    for contact in contacts:
+      j += 1
+      try:
+        fields = contactsManager.ContactToFields(contact)
+        if not localContactSelects(contactsManager, contactQuery, fields):
+          continue
+        if not dedupEmailAddressMatches(contactsManager, emailMatchType, fields):
+          continue
+        contactId = fields[CONTACT_ID]
+        contactEntry = contactsManager.FieldsToContact(fields)
+        if fields.get(CONTACT_GROUPS):
+          contactsManager.AddContactGroupsToContact(contactsObject, contactEntry, fields[CONTACT_GROUPS], user)
+        contactEntry.category = contact.category
+        contactEntry.link = contact.link
+        contactEntry.etag = contact.etag
+        contactEntry.id = contact.id
+        Act.Set(Act.UPDATE)
+        callGData(contactsObject, 'UpdateContact',
+                  throw_errors=[GDATA.NOT_FOUND, GDATA.BAD_REQUEST, GDATA.PRECONDITION_FAILED, GDATA.SERVICE_NOT_APPLICABLE, GDATA.FORBIDDEN],
+                  edit_uri=contactsObject.GetContactFeedUri(contact_list=user, contactId=contactId), updated_contact=contactEntry, extra_headers={'If-Match': contact.etag})
+        entityActionPerformed([entityType, user, Ent.CONTACT, contactId], j, jcount)
+      except (GDATA.notFound, GDATA.badRequest, GDATA.preconditionFailed) as e:
+        entityActionFailedWarning([entityType, user, Ent.CONTACT, contactId], str(e), j, jcount)
+      except (GDATA.forbidden, GDATA.notImplemented):
+        entityServiceNotApplicableWarning(entityType, user, i, count)
+        break
+      except GDATA.serviceNotApplicable:
+        entityUnknownWarning(entityType, user, i, count)
+        break
+    Ind.Decrement()
+
+# gam <UserTypeEntity> dedup contacts <ContactEntity>|<UserContactSelection> [matchType [<Boolean>]]
+def dedupUserContacts(users):
+  _dedupContacts(users, Ent.USER)
+
+# gam dedup contacts <ContactEntity>|<ContactSelection> [matchType [<Boolean>]]
+def doDedupDomainContacts():
+  _dedupContacts([GC.Values[GC.DOMAIN]], Ent.DOMAIN)
 
 def _deleteContacts(users, entityType):
   contactsManager = ContactsManager()
@@ -12155,7 +12256,8 @@ def _deleteContacts(users, entityType):
     if not contactsObject:
       continue
     if contactQuery['contactGroup']:
-      groupId, _, contactGroupNames = validateContactGroup(contactsManager, contactsObject, contactQuery['contactGroup'], None, None, entityType, user, i, count)
+      groupId, _, contactGroupNames = validateContactGroup(contactsManager, contactsObject, contactQuery['contactGroup'],
+                                                           None, None, entityType, user, i, count)
       if not groupId:
         if contactGroupNames:
           entityActionFailedWarning([entityType, user, Ent.CONTACT_GROUP, contactQuery['contactGroup']], Msg.DOES_NOT_EXIST, i, count)
@@ -12395,7 +12497,8 @@ def _printShowContacts(users, entityType, contactFeed=True):
       continue
     contactGroupIDs = contactGroupNames = None
     if contactQuery['contactGroup']:
-      groupId, contactGroupIDs, contactGroupNames = validateContactGroup(contactsManager, contactsObject, contactQuery['contactGroup'], contactGroupIDs, contactGroupNames, entityType, user, i, count)
+      groupId, contactGroupIDs, contactGroupNames = validateContactGroup(contactsManager, contactsObject, contactQuery['contactGroup'],
+                                                                         None, None, entityType, user, i, count)
       if not groupId:
         if contactGroupNames:
           entityActionFailedWarning([entityType, user, Ent.CONTACT_GROUP, contactQuery['contactGroup']], Msg.DOES_NOT_EXIST, i, count)
@@ -12568,7 +12671,8 @@ def _processContactPhotos(users, entityType, function):
     if not contactsObject:
       continue
     if contactQuery['contactGroup']:
-      groupId, _, contactGroupNames = validateContactGroup(contactsManager, contactsObject, contactQuery['contactGroup'], None, None, entityType, user, i, count)
+      groupId, _, contactGroupNames = validateContactGroup(contactsManager, contactsObject, contactQuery['contactGroup'],
+                                                           None, None, entityType, user, i, count)
       if not groupId:
         if contactGroupNames:
           entityActionFailedWarning([entityType, user, Ent.CONTACT_GROUP, contactQuery['contactGroup']], Msg.DOES_NOT_EXIST, i, count)
@@ -12735,7 +12839,8 @@ def updateUserContactGroup(users):
     Ind.Increment()
     for contactGroup in entityList:
       j += 1
-      groupId, contactGroupIDs, contactGroupNames = validateContactGroup(contactsManager, contactsObject, contactGroup, contactGroupIDs, contactGroupNames, entityType, user, i, count)
+      groupId, contactGroupIDs, contactGroupNames = validateContactGroup(contactsManager, contactsObject, contactGroup,
+                                                                         contactGroupIDs, contactGroupNames, entityType, user, i, count)
       if not groupId:
         if contactGroupNames:
           entityActionFailedWarning([entityType, user, Ent.CONTACT_GROUP, contactGroup], Msg.DOES_NOT_EXIST, j, jcount)
@@ -12797,7 +12902,8 @@ def deleteUserContactGroups(users):
     for contactGroup in entityList:
       j += 1
       try:
-        groupId, contactGroupIDs, contactGroupNames = validateContactGroup(contactsManager, contactsObject, contactGroup, contactGroupIDs, contactGroupNames, entityType, user, i, count)
+        groupId, contactGroupIDs, contactGroupNames = validateContactGroup(contactsManager, contactsObject, contactGroup,
+                                                                           contactGroupIDs, contactGroupNames, entityType, user, i, count)
         if not groupId:
           if contactGroupNames:
             entityActionFailedWarning([entityType, user, Ent.CONTACT_GROUP, contactGroup], Msg.DOES_NOT_EXIST, j, jcount)
@@ -12863,7 +12969,8 @@ def infoUserContactGroups(users):
     for contactGroup in entityList:
       j += 1
       try:
-        groupId, contactGroupIDs, contactGroupNames = validateContactGroup(contactsManager, contactsObject, contactGroup, contactGroupIDs, contactGroupNames, entityType, user, i, count)
+        groupId, contactGroupIDs, contactGroupNames = validateContactGroup(contactsManager, contactsObject, contactGroup,
+                                                                           contactGroupIDs, contactGroupNames, entityType, user, i, count)
         if not groupId:
           if contactGroupNames:
             entityActionFailedWarning([entityType, user, Ent.CONTACT_GROUP, contactGroup], Msg.DOES_NOT_EXIST, j, jcount)
@@ -35712,6 +35819,7 @@ SMTP_HEADERS_MAP = {
   'prevent-nondelivery-report': 'Prevent-NonDelivery-Report',
   'priority': 'Priority',
   'received': 'Received',
+  'recipient': 'To',
   'references': 'References',
   'reply-by': 'Reply-By',
   'reply-to': 'Reply-To',
@@ -35766,7 +35874,7 @@ SMTP_DATE_HEADERS = [
 
 SMTP_NAME_ADDRESS_PATTERN = re.compile(r'^(.+?)\s*<(.+)>$')
 
-def _importInsertMessage(users, importMsg):
+def _draftImportInsertMessage(users, operation):
   def _appendToHeader(header, value):
     try:
       header.append(value)
@@ -35800,29 +35908,21 @@ def _importInsertMessage(users, importMsg):
       if (value.find('#user#') >= 0) or (value.find('#email#') >= 0) or (value.find('#username#') >= 0):
         substituteForUserInHeaders = True
       msgHeaders[SMTP_HEADERS_MAP.get(header, header)] = value
-    elif myarg == 'textmessage':
-      msgText = getString(Cmd.OB_STRING)
-    elif myarg == 'textfile':
-      filename = getString(Cmd.OB_FILE_NAME)
-      encoding = getCharSet()
-      msgText = readFile(filename, encoding=encoding)
-    elif myarg == 'htmlmessage':
-      msgHTML = getString(Cmd.OB_STRING)
-    elif myarg == 'htmlfile':
-      filename = getString(Cmd.OB_FILE_NAME)
-      encoding = getCharSet()
-      msgHTML = readFile(filename, encoding=encoding)
+    elif myarg in ['message', 'textmessage', 'file', 'textfile']:
+      msgText, _ = getStringOrFile(myarg)
+    elif myarg in ['htmlmessage', 'htmlfile']:
+      msgHTML, _ = getStringOrFile(myarg)
     elif myarg == 'replace':
       _getTagReplacement(tagReplacements, False)
-    elif myarg == 'addlabel':
+    elif operation != 'draft' and myarg == 'addlabel':
       addLabelNames.append(getString(Cmd.OB_LABEL_NAME, minLen=1))
+    elif operation != 'draft' and myarg == 'deleted':
+      deleted = getBoolean()
     elif myarg == 'attach':
       attachments.append((getFilename(), getCharSet()))
-    elif myarg == 'deleted':
-      deleted = getBoolean()
-    elif importMsg and myarg == 'nevermarkspam':
+    elif operation == 'import' and myarg == 'nevermarkspam':
       neverMarkSpam = getBoolean()
-    elif importMsg and myarg == 'processforcalendar':
+    elif operation == 'import' and myarg == 'processforcalendar':
       processForCalendar = getBoolean()
     else:
       unknownArgumentExit()
@@ -35838,12 +35938,15 @@ def _importInsertMessage(users, importMsg):
     substituteForUserInHeaders = True
   if 'From' not in msgHeaders:
     msgHeaders['From'] = _getValueFromOAuth('email')
-  kwargs = {'internalDateSource': internalDateSource, 'deleted': deleted}
-  if importMsg:
-    function = 'import_'
-    kwargs.update({'neverMarkSpam': neverMarkSpam, 'processForCalendar': processForCalendar})
+  if operation != 'draft':
+    kwargs = {'internalDateSource': internalDateSource, 'deleted': deleted}
+    if operation == 'import':
+      function = 'import_'
+      kwargs.update({'neverMarkSpam': neverMarkSpam, 'processForCalendar': processForCalendar})
+    else: #'insert':
+      function = 'insert'
   else:
-    function = 'insert'
+    function = 'create'
   add_charset(UTF8, QP, QP, UTF8)
   i, count, users = getEntityArgument(users)
   for user in users:
@@ -35904,34 +36007,47 @@ def _importInsertMessage(users, importMsg):
     body = {'raw': base64.urlsafe_b64encode(tmpFile.read())}
     tmpFile.close()
     try:
-      if addLabelNames:
-        userGmailLabels = _getUserGmailLabels(gmail, user, i, count, fields='labels(id,name,type)')
-        if not userGmailLabels:
-          continue
-        labelNameMap = _initLabelNameMap(userGmailLabels)
-        body['labelIds'] = _convertLabelNamesToIds(gmail, addLabelNames, labelNameMap, True)
+      if operation != 'draft':
+        if addLabelNames:
+          userGmailLabels = _getUserGmailLabels(gmail, user, i, count, fields='labels(id,name,type)')
+          if not userGmailLabels:
+            continue
+          labelNameMap = _initLabelNameMap(userGmailLabels)
+          body['labelIds'] = _convertLabelNamesToIds(gmail, addLabelNames, labelNameMap, True)
+        else:
+          body['labelIds'] = ['INBOX']
+        result = callGAPI(gmail.users().messages(), function,
+                          throw_reasons=GAPI.GMAIL_THROW_REASONS,
+                          userId='me', body=body, fields='id', **kwargs)
       else:
-        body['labelIds'] = ['INBOX']
-      result = callGAPI(gmail.users().messages(), function,
-                        throw_reasons=GAPI.GMAIL_THROW_REASONS,
-                        userId='me', body=body, **kwargs)
+        result = callGAPI(gmail.users().drafts(), function,
+                          throw_reasons=GAPI.GMAIL_THROW_REASONS+[GAPI.INVALID_ARGUMENT],
+                          userId='me', body={'message': body}, fields='id')
       entityActionPerformed([Ent.USER, user, Ent.MESSAGE, result['id']], i, count)
     except (GAPI.serviceNotAvailable, GAPI.badRequest):
       entityServiceNotApplicableWarning(Ent.USER, user, i, count)
+    except GAPI.invalidArgument as e:
+      entityActionFailedWarning([Ent.USER, user], str(e), i, count)
+
+# gam <UserTypeEntity> draft message (<SMTPDateHeader> <Time>)* (<SMTPHeader> <String>)* (header <String> <String>)*
+#	(textmessage <String>)|(textfile <FileName> [charset <CharSet>]) (htmlmessage <String>)|(htmlfile <FileName> [charset <CharSet>])
+#	(replace <Tag> <String>)* (attach <FileName> [charset <CharSet>])*
+def draftMessage(users):
+  _draftImportInsertMessage(users, u'draft')
 
 # gam <UserTypeEntity> import message (<SMTPDateHeader> <Time>)* (<SMTPHeader> <String>)* (header <String> <String>)* (addlabel <LabelName>)*
 #	(textmessage <String>)|(textfile <FileName> [charset <CharSet>]) (htmlmessage <String>)|(htmlfile <FileName> [charset <CharSet>])
 #	(replace <Tag> <String>)* (attach <FileName> [charset <CharSet>])*
 #	[deleted [<Boolean>]] [nevermarkspam [<Boolean>]] [processforcalendar [<Boolean>]]
 def importMessage(users):
-  _importInsertMessage(users, True)
+  _draftImportInsertMessage(users, u'import')
 
 # gam <UserTypeEntity> insert message (<SMTPDateHeader> <Time>)* (<SMTPHeader> <String>)* (header <String> <String>)* (addlabel <LabelName>)*
 #	(textmessage <String>)|(textfile <FileName> [charset <CharSet>]) (htmlmessage <String>)|(htmlfile <FileName> [charset <CharSet>])
 #	(replace <Tag> <String>)* (attach <FileName> [charset <CharSet>])*
 #	[deleted [<Boolean>]]
 def insertMessage(users):
-  _importInsertMessage(users, False)
+  _draftImportInsertMessage(users, u'insert')
 
 def printShowMessagesThreads(users, entityType):
 
@@ -38050,6 +38166,7 @@ MAIN_COMMANDS_WITH_OBJECTS = {
   'clear': (Act.CLEAR, {Cmd.ARG_CONTACT: doClearDomainContacts}),
   'close': (Act.CLOSE, {Cmd.ARG_VAULTMATTER: doCloseVaultMatter}),
   'create': (Act.CREATE, MAIN_ADD_CREATE_FUNCTIONS),
+  'dedup': (Act.DEDUP, {Cmd.ARG_CONTACT: doDedupDomainContacts}),
   'delete':
     (Act.DELETE,
      {Cmd.ARG_ADMIN:		doDeleteAdmin,
@@ -38585,9 +38702,12 @@ USER_COMMANDS = {
   'arrows': (Act.SET, setArrows),
   'delegate': (Act.ADD, delegateTo),
   'deprovision':(Act.DEPROVISION, deprovisionUser),
+  'draftemail': (Act.DRAFT, draftMessage),
   'filter': (Act.ADD, createFilter),
   'forward': (Act.SET, setForward),
   'imap': (Act.SET, setImap),
+  'importemail': (Act.IMPORT, importMessage),
+  'insertemail': (Act.INSERT, insertMessage),
   'label': (Act.ADD, createLabel),
   'list': (Act.LIST, doListUser),
   'language': (Act.SET, setLanguage),
@@ -38643,6 +38763,7 @@ USER_COMMANDS_WITH_OBJECTS = {
   'collect': (Act.COLLECT, {Cmd.ARG_ORPHANS: collectOrphans}),
   'copy': (Act.COPY, {Cmd.ARG_DRIVEFILE: copyDriveFile}),
   'create': (Act.CREATE, USER_ADD_CREATE_FUNCTIONS),
+  'dedup': (Act.DEDUP, {Cmd.ARG_CONTACT: dedupUserContacts}),
   'delete':
     (Act.DELETE,
      {Cmd.ARG_ALIAS:		deleteUsersAliases,
@@ -38677,6 +38798,7 @@ USER_COMMANDS_WITH_OBJECTS = {
       Cmd.ARG_USER:		deleteUsers,
      }
     ),
+  'draft': (Act.DRAFT, {Cmd.ARG_MESSAGE: draftMessage}),
   'empty': (Act.EMPTY, {Cmd.ARG_CALENDARTRASH: emptyCalendarTrash, Cmd.ARG_DRIVETRASH: emptyDriveTrash}),
   'get': (Act.DOWNLOAD, {Cmd.ARG_CONTACTPHOTO: getUserContactPhoto, Cmd.ARG_DRIVEFILE: getDriveFile, Cmd.ARG_PHOTO: getPhoto}),
   'import': (Act.IMPORT, {Cmd.ARG_EVENT: importCalendarEvent, Cmd.ARG_MESSAGE: importMessage}),
