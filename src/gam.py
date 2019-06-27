@@ -22,7 +22,7 @@ For more information, see https://github.com/taers232c/GAMADV-X
 """
 
 __author__ = 'Ross Scroggs <ross.scroggs@gmail.com>'
-__version__ = '4.88.01'
+__version__ = '4.88.02'
 __license__ = 'Apache License 2.0 (http://www.apache.org/licenses/LICENSE-2.0)'
 
 import base64
@@ -5018,7 +5018,7 @@ def send_email(msgSubject, msgBody, msgTo, i=0, count=0, msgFrom=None, msgReplyT
     message.attach(msg)
     _addAttachmentsToMessage(message, attachments)
   message['Subject'] = unicode(msgSubject)
-  message['From'] = userId
+  message['From'] = msgFrom
   message['To'] = msgTo
   if msgReplyTo is not None:
     message['Reply-To'] = msgReplyTo
@@ -7957,19 +7957,20 @@ def _getTagReplacement(tagReplacements, allowSubs):
   else:
     tagReplacements['tags'][matchTag] = {'value': matchReplacement}
 
-def _getTagReplacementFieldValues(user, i, count, tagReplacements):
-  if tagReplacements['fields'] and tagReplacements['fields'] != 'primaryEmail':
-    if not tagReplacements['cd']:
-      tagReplacements['cd'] = buildGAPIObject(API.DIRECTORY)
-    try:
-      results = callGAPI(tagReplacements['cd'].users(), 'get',
-                         throw_reasons=GAPI.USER_GET_THROW_REASONS,
-                         userKey=user, projection='custom', customFieldMask=tagReplacements['customFieldMask'], fields=tagReplacements['fields'])
-    except (GAPI.userNotFound, GAPI.domainNotFound, GAPI.domainCannotUseApis, GAPI.forbidden, GAPI.badRequest, GAPI.backendError, GAPI.systemError):
-      entityUnknownWarning(Ent.USER, user, i, count)
-      return
-  else:
-    results = {'primaryEmail': user}
+def _getTagReplacementFieldValues(user, i, count, tagReplacements, results=None):
+  if results is None:
+    if tagReplacements['fields'] and tagReplacements['fields'] != 'primaryEmail':
+      if not tagReplacements['cd']:
+        tagReplacements['cd'] = buildGAPIObject(API.DIRECTORY)
+      try:
+        results = callGAPI(tagReplacements['cd'].users(), 'get',
+                           throw_reasons=GAPI.USER_GET_THROW_REASONS,
+                           userKey=user, projection='custom', customFieldMask=tagReplacements['customFieldMask'], fields=tagReplacements['fields'])
+      except (GAPI.userNotFound, GAPI.domainNotFound, GAPI.domainCannotUseApis, GAPI.forbidden, GAPI.badRequest, GAPI.backendError, GAPI.systemError):
+        entityUnknownWarning(Ent.USER, user, i, count)
+        return
+    else:
+      results = {'primaryEmail': user}
   userName, domain = splitEmailAddress(user)
   for _, tag in iteritems(tagReplacements['tags']):
     if tag.get('field'):
@@ -8144,7 +8145,7 @@ def _processTagReplacements(tagReplacements, message):
       message = re.sub(match.group(0), tagSubs[tag], message)
   return message
 
-def sendCreateUpdateUserNotification(notify, body, i=0, count=0, msgFrom=None, createMessage=True):
+def sendCreateUpdateUserNotification(body, notify, tagReplacements, i=0, count=0, msgFrom=None, createMessage=True):
   def _makeSubstitutions(field):
     notify[field] = _substituteForUser(notify[field], body['primaryEmail'], userName)
     notify[field] = notify[field].replace('#domain#', domain)
@@ -8159,6 +8160,10 @@ def sendCreateUpdateUserNotification(notify, body, i=0, count=0, msgFrom=None, c
   if not notify['message']:
     notify['message'] = Msg.CREATE_USER_NOTIFY_MESSAGE if createMessage else Msg.UPDATE_USER_PASSWORD_CHANGE_NOTIFY_MESSAGE
   _makeSubstitutions('message')
+  if tagReplacements['subs']:
+    _getTagReplacementFieldValues(body['primaryEmail'], i, count, tagReplacements, body if createMessage else None)
+  notify['subject'] = _processTagReplacements(tagReplacements, notify['subject'])
+  notify['message'] = _processTagReplacements(tagReplacements, notify['message'])
   send_email(notify['subject'], notify['message'], notify['emailAddress'], i, count, msgFrom=msgFrom, html=notify['html'], charset=notify['charset'])
 
 # gam sendemail <EmailAddressEntity> [from <UserItem>] [replyto <EmailAddress>]
@@ -8236,7 +8241,7 @@ def doSendEmail(users=None):
     if ((jcount == 1) and (recipients[0] is not None) and
         ('password' in body) and ('name' in body) and ('givenName' in body['name']) and ('familyName' in body['name'])):
       notify['emailAddress'] = recipients[0]
-      sendCreateUpdateUserNotification(notify, body, msgFrom=msgFroms[0])
+      sendCreateUpdateUserNotification(body, notify, tagReplacements, msgFrom=msgFroms[0])
     else:
       usageErrorExit(Msg.NEWUSER_REQUIREMENTS, True)
     return
@@ -11994,6 +11999,9 @@ def validateContactGroup(contactsManager, contactsObject, contactGroupName,
   else:
     if contactGroupName in contactGroupNames:
       return (contactGroupNames[contactGroupName][0], contactGroupIDs, contactGroupNames)
+    sgContactGroupName = 'System Group: '+contactGroupName
+    if sgContactGroupName in contactGroupNames:
+      return (contactGroupNames[sgContactGroupName][0], contactGroupIDs, contactGroupNames)
   return (None, contactGroupIDs, contactGroupNames)
 
 def validateContactGroupsList(contactsManager, contactsObject, contactId, fields, entityType, entityName, i, count):
@@ -21689,6 +21697,7 @@ def getUserAttributes(cd, updateCmd, noUid=False):
   primary = {}
   updatePrimaryEmail = {}
   groupOrgUnitMap = None
+  tagReplacements = _initTagReplacements()
   while Cmd.ArgumentsRemaining():
     myarg = getArgument()
     if myarg == 'notify':
@@ -21699,6 +21708,8 @@ def getUserAttributes(cd, updateCmd, noUid=False):
       notify['message'], notify['charset'] = getStringOrFile(myarg)
     elif myarg == 'html':
       notify['html'] = getBoolean()
+    elif myarg == 'replace':
+      _getTagReplacement(tagReplacements, True)
     elif myarg == 'admin':
       value = getBoolean()
       if updateCmd or value:
@@ -22018,41 +22029,46 @@ def getUserAttributes(cd, updateCmd, noUid=False):
   if 'password' in body and need_to_hash_password:
     body['password'] = gen_sha512_hash(body['password'])
     body['hashFunction'] = 'crypt'
-  return (body, notify, updatePrimaryEmail, createIfNotFound, groupOrgUnitMap)
+  return (body, notify, tagReplacements, updatePrimaryEmail, createIfNotFound, groupOrgUnitMap)
 
-# gam create user <EmailAddress> <UserAttributes> [notify <EmailAddress>] [subject <String>] [message <String>|(file <FileName> [charset <CharSet>])] [html [<Boolean>]]
+# gam create user <EmailAddress> <UserAttributes>
+#	[notify <EmailAddress>] [subject <String>] [message <String>|(file <FileName> [charset <CharSet>])] [html [<Boolean>]]
+#	(replace <Tag> <String>)*
 def doCreateUser():
   cd = buildGAPIObject(API.DIRECTORY)
-  body, notify, _, _, _ = getUserAttributes(cd, False, noUid=True)
+  body, notify, tagReplacements, _, _, _ = getUserAttributes(cd, False, noUid=True)
   user = body['primaryEmail']
+  fields = '*' if tagReplacements['subs'] else ''
   try:
-    callGAPI(cd.users(), 'insert',
-             throw_reasons=[GAPI.DUPLICATE, GAPI.DOMAIN_NOT_FOUND, GAPI.DOMAIN_CANNOT_USE_APIS, GAPI.FORBIDDEN,
-                            GAPI.INVALID, GAPI.INVALID_INPUT, GAPI.INVALID_PARAMETER,
-                            GAPI.INVALID_ORGUNIT, GAPI.INVALID_SCHEMA_VALUE],
-             body=body, fields='')
+    result = callGAPI(cd.users(), 'insert',
+                      throw_reasons=[GAPI.DUPLICATE, GAPI.DOMAIN_NOT_FOUND, GAPI.DOMAIN_CANNOT_USE_APIS, GAPI.FORBIDDEN,
+                                     GAPI.INVALID, GAPI.INVALID_INPUT, GAPI.INVALID_PARAMETER,
+                                     GAPI.INVALID_ORGUNIT, GAPI.INVALID_SCHEMA_VALUE],
+                      body=body, fields=fields)
     entityActionPerformed([Ent.USER, user])
     if notify.get('emailAddress'):
-      sendCreateUpdateUserNotification(notify, body)
+      sendCreateUpdateUserNotification(result, notify, tagReplacements)
   except GAPI.duplicate:
     entityDuplicateWarning([Ent.USER, user])
-  except (GAPI.domainNotFound, GAPI.domainCannotUseApis, GAPI.forbidden) as e:
-    entityActionFailedWarning([Ent.USER, user], str(e))
   except GAPI.invalidSchemaValue:
     entityActionFailedWarning([Ent.USER, user], Msg.INVALID_SCHEMA_VALUE)
-  except (GAPI.invalid, GAPI.invalidInput, GAPI.invalidParameter) as e:
-    entityActionFailedWarning([Ent.USER, user], str(e))
   except GAPI.invalidOrgunit:
     entityActionFailedWarning([Ent.USER, user], Msg.INVALID_ORGUNIT)
+  except (GAPI.domainNotFound, GAPI.domainCannotUseApis, GAPI.forbidden,
+          GAPI.invalid, GAPI.invalidInput, GAPI.invalidParameter) as e:
+    entityActionFailedWarning([Ent.USER, user], str(e))
 
 # gam <UserTypeEntity> update user <UserAttributes> [updateprimaryemail <RegularExpression> <EmailReplacement>]
 #	[clearschema <SchemaName>] [clearschema <SchemaName>.<FieldName>]
-#	[createifnotfound] [notify <EmailAddress>] [subject <String>] [message <String>|(file <FileName> [charset <CharSet>])] [html [<Boolean>]]
+#	[createifnotfound]
+#	[notify <EmailAddress>] [subject <String>] [message <String>|(file <FileName> [charset <CharSet>])] [html [<Boolean>]]
+#	(replace <Tag> <String>)*
 def updateUsers(entityList):
   cd = buildGAPIObject(API.DIRECTORY)
-  body, notify, updatePrimaryEmail, createIfNotFound, groupOrgUnitMap = getUserAttributes(cd, True)
+  body, notify, tagReplacements, updatePrimaryEmail, createIfNotFound, groupOrgUnitMap = getUserAttributes(cd, True)
   vfe = 'primaryEmail' in body and body['primaryEmail'][:4].lower() == 'vfe@'
   i, count, entityList = getEntityArgument(entityList)
+  fields = '*' if tagReplacements['subs'] else 'primaryEmail,name'
   for user in entityList:
     i += 1
     user = userKey = normalizeEmailAddressOrUID(user)
@@ -22099,37 +22115,39 @@ def updateUsers(entityList):
                             throw_reasons=[GAPI.USER_NOT_FOUND, GAPI.DOMAIN_NOT_FOUND, GAPI.FORBIDDEN,
                                            GAPI.INVALID, GAPI.INVALID_INPUT, GAPI.INVALID_PARAMETER,
                                            GAPI.INVALID_ORGUNIT, GAPI.INVALID_SCHEMA_VALUE],
-                            userKey=userKey, body=body, fields='primaryEmail,name')
+                            userKey=userKey, body=body, fields=fields)
           entityActionPerformed([Ent.USER, user], i, count)
           if notify.get('emailAddress') and notify.get('password'):
-            sendCreateUpdateUserNotification(notify, result, i, count, createMessage=False)
+            sendCreateUpdateUserNotification(result, notify, tagReplacements, i, count, createMessage=False)
         except GAPI.userNotFound:
           if createIfNotFound and (count == 1) and not vfe and ('password' in body) and ('name' in body) and ('givenName' in body['name']) and ('familyName' in body['name']):
             if 'primaryEmail' not in body:
               body['primaryEmail'] = user
             try:
-              callGAPI(cd.users(), 'insert',
-                       throw_reasons=[GAPI.DUPLICATE, GAPI.DOMAIN_NOT_FOUND, GAPI.FORBIDDEN,
-                                      GAPI.INVALID, GAPI.INVALID_INPUT, GAPI.INVALID_PARAMETER,
-                                      GAPI.INVALID_ORGUNIT, GAPI.INVALID_SCHEMA_VALUE],
-                       body=body, fields='')
+              result = callGAPI(cd.users(), 'insert',
+                                throw_reasons=[GAPI.DUPLICATE, GAPI.DOMAIN_NOT_FOUND, GAPI.FORBIDDEN,
+                                               GAPI.INVALID, GAPI.INVALID_INPUT, GAPI.INVALID_PARAMETER,
+                                               GAPI.INVALID_ORGUNIT, GAPI.INVALID_SCHEMA_VALUE],
+                                body=body, fields=fields)
               Act.Set(Act.CREATE)
               entityActionPerformed([Ent.USER, user], i, count)
               if notify.get('emailAddress'):
-                sendCreateUpdateUserNotification(notify, body, i, count)
+                sendCreateUpdateUserNotification(result, notify, tagReplacements, i, count)
             except GAPI.duplicate:
               entityDuplicateWarning([Ent.USER, user], i, count)
           else:
             entityUnknownWarning(Ent.USER, user, i, count)
             continue
-    except (GAPI.userNotFound, GAPI.domainNotFound, GAPI.domainCannotUseApis, GAPI.forbidden, GAPI.badRequest, GAPI.backendError, GAPI.systemError):
+    except GAPI.userNotFound:
       entityUnknownWarning(Ent.USER, user, i, count)
     except GAPI.invalidSchemaValue:
       entityActionFailedWarning([Ent.USER, user], Msg.INVALID_SCHEMA_VALUE, i, count)
-    except (GAPI.invalid, GAPI.invalidInput, GAPI.invalidParameter) as e:
-      entityActionFailedWarning([Ent.USER, user], str(e), i, count)
     except GAPI.invalidOrgunit:
       entityActionFailedWarning([Ent.USER, user], Msg.INVALID_ORGUNIT, i, count)
+    except (GAPI.domainNotFound, GAPI.domainCannotUseApis, GAPI.forbidden,
+            GAPI.invalid, GAPI.invalidInput, GAPI.invalidParameter,
+            GAPI.badRequest, GAPI.backendError, GAPI.systemError) as e:
+      entityActionFailedWarning([Ent.USER, user], str(e), i, count)
 
 # gam update users <UserTypeEntity> <UserAttributes> [updateprimaryemail <RegularExpression> <EmailReplacement>]
 #	[clearschema <SchemaName>] [clearschema <SchemaName>.<FieldName>]
@@ -22156,8 +22174,10 @@ def deleteUsers(entityList):
                throw_reasons=[GAPI.USER_NOT_FOUND, GAPI.DOMAIN_NOT_FOUND, GAPI.DOMAIN_CANNOT_USE_APIS, GAPI.FORBIDDEN],
                userKey=user)
       entityActionPerformed([Ent.USER, user], i, count)
-    except (GAPI.userNotFound, GAPI.domainNotFound, GAPI.domainCannotUseApis, GAPI.forbidden):
+    except GAPI.userNotFound:
       entityUnknownWarning(Ent.USER, user, i, count)
+    except (GAPI.domainNotFound, GAPI.domainCannotUseApis, GAPI.forbidden) as e:
+      entityActionFailedWarning([Ent.USER, user], str(e), i, count)
 
 # gam delete users <UserTypeEntity>
 def doDeleteUsers():
@@ -22228,13 +22248,16 @@ def undeleteUsers(entityList):
       orgUnitPaths = userOrgUnitLists[origUser]
     try:
       callGAPI(cd.users(), 'undelete',
-               throw_reasons=[GAPI.BAD_REQUEST, GAPI.INVALID, GAPI.INVALID_ORGUNIT, GAPI.DELETED_USER_NOT_FOUND],
+               throw_reasons=[GAPI.DELETED_USER_NOT_FOUND, GAPI.INVALID_ORGUNIT,
+                              GAPI.DOMAIN_NOT_FOUND, GAPI.DOMAIN_CANNOT_USE_APIS, GAPI.FORBIDDEN, GAPI.BAD_REQUEST, GAPI.INVALID],
                userKey=user_uid, body={'orgUnitPath': makeOrgUnitPathAbsolute(orgUnitPaths[0])})
       entityActionPerformed([Ent.DELETED_USER, user], i, count)
-    except (GAPI.badRequest, GAPI.invalid, GAPI.deletedUserNotFound):
+    except GAPI.deletedUserNotFound:
       entityUnknownWarning(Ent.DELETED_USER, user, i, count)
     except GAPI.invalidOrgunit:
       entityActionFailedWarning([Ent.USER, user], Msg.INVALID_ORGUNIT, i, count)
+    except (GAPI.domainNotFound, GAPI.domainCannotUseApis, GAPI.forbidden, GAPI.badRequest, GAPI.invalid) as e:
+      entityActionFailedWarning([Ent.USER, user], str(e), i, count)
 
 # gam undelete users <UserEntity> [org|ou <OrgUnitPath>]
 def doUndeleteUsers():
@@ -22257,8 +22280,10 @@ def suspendUnsuspendUsers(entityList, suspended):
                throw_reasons=[GAPI.USER_NOT_FOUND, GAPI.DOMAIN_NOT_FOUND, GAPI.DOMAIN_CANNOT_USE_APIS, GAPI.FORBIDDEN],
                userKey=user, body=body)
       entityActionPerformed([Ent.USER, user], i, count)
-    except (GAPI.userNotFound, GAPI.domainNotFound, GAPI.domainCannotUseApis, GAPI.forbidden):
+    except GAPI.userNotFound:
       entityUnknownWarning(Ent.USER, user, i, count)
+    except (GAPI.domainNotFound, GAPI.domainCannotUseApis, GAPI.forbidden) as e:
+      entityActionFailedWarning([Ent.USER, user], str(e), i, count)
 
 # gam <UserTypeEntity> suspend users
 def suspendUsers(entityList):
@@ -23261,7 +23286,8 @@ def _getCourseStates(item, states):
       invalidChoiceExit(stateMap, True)
 
 def _initCourseAttributesFrom():
-  return {'courseId': None, 'members': 'none', 'announcementStates': [], 'workStates': []}
+  return {'courseId': None, 'members': 'none', 'markPublishedAsDraft': False, 'removeDueDate': False,
+          'announcementStates': [], 'workStates': []}
 
 def _getCourseAttribute(myarg, body, courseAttributesFrom):
   if myarg == 'name':
@@ -23286,6 +23312,10 @@ def _getCourseAttribute(myarg, body, courseAttributesFrom):
     _getCourseStates(Cmd.OB_COURSE_WORK_STATE_LIST, courseAttributesFrom['workStates'])
   elif myarg == 'members':
     courseAttributesFrom['members'] = getChoice(COURSE_MEMBER_ARGUMENTS)
+  elif myarg == 'markpublishedasdraft':
+    courseAttributesFrom['markPublishedAsDraft'] = getBoolean()
+  elif myarg == 'removeduedate':
+    courseAttributesFrom['removeDueDate'] = getBoolean()
   else:
     unknownArgumentExit()
 
@@ -23306,7 +23336,7 @@ def _gettingCourseAnnouncementQuery(courseAnnouncementStates):
     query = query[:-2]
   return query
 
-COURSE_ANNOUNCEMENT_REACDONLY_FIELDS = [
+COURSE_ANNOUNCEMENT_READONLY_FIELDS = [
   'alternateLink',
   'courseId',
   'creationTime',
@@ -23324,6 +23354,34 @@ COURSE_COURSEWORK_READONLY_FIELDS = [
   'id',
   'updateTime',
   ]
+
+def stripMaterialsReadOnlyFields(body):
+  if 'materials' not in body:
+    return
+  materials = body.pop('materials')
+  body['materials'] = []
+  for material in materials:
+    if 'driveFile' in material:
+      material['driveFile'].pop('title', None)
+      material['driveFile'].pop('alternateLink', None)
+      material['driveFile'].pop('thumbnailUrl', None)
+      body['materials'].append(material)
+    elif 'youtubeVideo' in material:
+      material['youtubeVideo'].pop('title', None)
+      material['youtubeVideo'].pop('alternateLink', None)
+      material['youtubeVideo'].pop('thumbnailUrl', None)
+      body['materials'].append(material)
+    elif 'link' in material:
+      material['link'].pop('title', None)
+      material['link'].pop('thumbnailUrl', None)
+      body['materials'].append(material)
+    elif 'form' in material:
+      pass #not supported
+
+def stripAssingmentReadOnlyFields(body):
+  if 'assignment' in body and 'studentWorkFolder' in body['assignment']:
+    body['assignment']['studentWorkFolder'].pop('title', None)
+    body['assignment']['studentWorkFolder'].pop('alternateLink', None)
 
 def copyCourseAttributes(croom, newCourseId, ownerId, courseAttributesFrom, i, count):
   courseId = courseAttributesFrom['courseId']
@@ -23372,8 +23430,9 @@ def copyCourseAttributes(croom, newCourseId, ownerId, courseAttributesFrom, i, c
       for body in courseAnnouncements:
         j += 1
         courseAnnouncementId = body['id']
-        for field in COURSE_ANNOUNCEMENT_REACDONLY_FIELDS:
+        for field in COURSE_ANNOUNCEMENT_READONLY_FIELDS:
           body.pop(field, None)
+        stripMaterialsReadOnlyFields(body)
         try:
           callGAPI(tcroom.courses().announcements(), 'create',
                    throw_reasons=[GAPI.NOT_FOUND, GAPI.PERMISSION_DENIED, GAPI.FORBIDDEN],
@@ -23391,18 +23450,28 @@ def copyCourseAttributes(croom, newCourseId, ownerId, courseAttributesFrom, i, c
         courseWorkId = body['id']
         for field in COURSE_COURSEWORK_READONLY_FIELDS:
           body.pop(field, None)
+        stripMaterialsReadOnlyFields(body)
+        stripAssingmentReadOnlyFields(body)
+        if courseAttributesFrom['markPublishedAsDraft'] and body['state'] == 'PUBLISHED':
+          body['state'] = 'DRAFT'
+        if courseAttributesFrom['removeDueDate']:
+          body.pop('dueDate', None)
+          body.pop('dueTime', None)
         try:
           callGAPI(tcroom.courses().courseWork(), 'create',
-                   throw_reasons=[GAPI.NOT_FOUND, GAPI.PERMISSION_DENIED, GAPI.FORBIDDEN],
+                   throw_reasons=[GAPI.NOT_FOUND, GAPI.PERMISSION_DENIED, GAPI.FORBIDDEN, GAPI.BAD_REQUEST],
                    courseId=newCourseId, body=body)
           entityActionPerformed([Ent.COURSE, newCourseId, Ent.COURSE_WORK_ID, courseWorkId], j, jcount)
-        except GAPI.notFound as e:
+        except (GAPI.notFound, GAPI.badRequest) as e:
           entityActionFailedWarning([Ent.COURSE, newCourseId, Ent.COURSE_WORK_ID, courseWorkId], str(e), j, jcount)
         except (GAPI.permissionDenied, GAPI.forbidden):
           APIAccessDeniedExit()
 
 # gam create course [id|alias <CourseAlias>] <CourseAttributes>*
-#	 [copyfrom <CourseID> [announcementstates <CourseAnnouncementStateList>] [workstates <CourseWorkStateList>] [members none|all|students|teachers]]
+#	 [copyfrom <CourseID>
+#	    [announcementstates <CourseAnnouncementStateList>]
+#	    [workstates <CourseWorkStateList>] [markpublishedasdraft [<Boolean>]] [removeduedate [<Boolean>]]
+#	    [members none|all|students|teachers]]
 def doCreateCourse():
   croom = buildGAPIObject(API.CLASSROOM)
   body = {}
@@ -23421,7 +23490,8 @@ def doCreateCourse():
     return
   try:
     result = callGAPI(croom.courses(), 'create',
-                      throw_reasons=[GAPI.ALREADY_EXISTS, GAPI.NOT_FOUND, GAPI.PERMISSION_DENIED, GAPI.FAILED_PRECONDITION, GAPI.FORBIDDEN, GAPI.BAD_REQUEST],
+                      throw_reasons=[GAPI.ALREADY_EXISTS, GAPI.NOT_FOUND, GAPI.PERMISSION_DENIED,
+                                     GAPI.FAILED_PRECONDITION, GAPI.FORBIDDEN, GAPI.BAD_REQUEST],
                       body=body, fields='id,name,ownerId')
     entityActionPerformed([Ent.COURSE_NAME, result['name'], Ent.COURSE, result['id']])
     if courseAttributesFrom['courseId']:
@@ -23447,7 +23517,8 @@ def _doUpdateCourses(entityList):
     try:
       if body:
         result = callGAPI(croom.courses(), 'patch',
-                          throw_reasons=[GAPI.NOT_FOUND, GAPI.PERMISSION_DENIED, GAPI.FAILED_PRECONDITION, GAPI.FORBIDDEN, GAPI.BAD_REQUEST],
+                          throw_reasons=[GAPI.NOT_FOUND, GAPI.PERMISSION_DENIED,
+                                         GAPI.FAILED_PRECONDITION, GAPI.FORBIDDEN, GAPI.BAD_REQUEST],
                           id=courseId, body=body, updateMask=updateMask, fields='id,name,ownerId')
         entityActionPerformed([Ent.COURSE_NAME, result['name'], Ent.COURSE, result['id']], i, count)
       else:
@@ -23460,12 +23531,18 @@ def _doUpdateCourses(entityList):
       entityActionFailedWarning([Ent.COURSE, removeCourseIdScope(courseId)], str(e), i, count)
 
 # gam update courses <CourseEntity> <CourseAttributes>+
-#	 [copyfrom <CourseID> [announcementstates <CourseAnnouncementStateList>] [workstates <CourseWorkStateList>] [members none|all|students|teachers]]
+#	 [copyfrom <CourseID>
+#	    [announcementstates <CourseAnnouncementStateList>]
+#	    [workstates <CourseWorkStateList>] [markpublishedasdraft [<Boolean>]] [removeduedate [<Boolean>]]
+#	    [members none|all|students|teachers]]
 def doUpdateCourses():
   _doUpdateCourses(getEntityList(Cmd.OB_COURSE_ENTITY))
 
 # gam update course <CourseID> <CourseAttributes>+
-#	 [copyfrom <CourseID> [announcementstates <CourseAnnouncementStateList>] [workstates <CourseWorkStateList>] [members none|all|students|teachers]]
+#	 [copyfrom <CourseID>
+#	    [announcementstates <CourseAnnouncementStateList>]
+#	    [workstates <CourseWorkStateList>] [markpublishedasdraft [<Boolean>]] [removeduedate [<Boolean>]]
+#	    [members none|all|students|teachers]]
 def doUpdateCourse():
   _doUpdateCourses(getStringReturnInList(Cmd.OB_COURSE_ID))
 
@@ -35892,7 +35969,8 @@ def _draftImportInsertMessage(users, operation):
   tagReplacements = _initTagReplacements()
   attachments = []
   internalDateSource = 'receivedTime'
-  deleted = neverMarkSpam = processForCalendar = substituteForUserInHeaders = False
+  deleted = processForCalendar = substituteForUserInHeaders = False
+  neverMarkSpam = True
   while Cmd.ArgumentsRemaining():
     myarg = getArgument()
     if myarg in SMTP_HEADERS_MAP:
@@ -35918,14 +35996,18 @@ def _draftImportInsertMessage(users, operation):
       msgHTML, _ = getStringOrFile(myarg)
     elif myarg == 'replace':
       _getTagReplacement(tagReplacements, False)
-    elif operation != 'draft' and myarg == 'addlabel':
+    elif operation in ['import', 'insert'] and myarg == 'addlabel':
       addLabelNames.append(getString(Cmd.OB_LABEL_NAME, minLen=1))
-    elif operation != 'draft' and myarg == 'deleted':
+    elif operation in ['import', 'insert'] and myarg == 'labels':
+      addLabelNames.extend(shlexSplitList(getString(Cmd.OB_LABEL_NAME_LIST)))
+    elif operation in ['import', 'insert'] and myarg == 'deleted':
       deleted = getBoolean()
     elif myarg == 'attach':
       attachments.append((getFilename(), getCharSet()))
     elif operation == 'import' and myarg == 'nevermarkspam':
       neverMarkSpam = getBoolean()
+    elif operation == 'import' and myarg == 'checkspam':
+      neverMarkSpam = not getBoolean()
     elif operation == 'import' and myarg == 'processforcalendar':
       processForCalendar = getBoolean()
     else:
@@ -36033,7 +36115,7 @@ def _draftImportInsertMessage(users, operation):
     except GAPI.invalidArgument as e:
       entityActionFailedWarning([Ent.USER, user], str(e), i, count)
 
-# gam <UserTypeEntity> draft message (<SMTPDateHeader> <Time>)* (<SMTPHeader> <String>)* (header <String> <String>)*
+# gam <UserTypeEntity> draft message (<SMTPDateHeader> <Time>)* (<SMTPHeader> <String>)* (header <String> <String>)* (addlabel <LabelName>)*
 #	(textmessage <String>)|(textfile <FileName> [charset <CharSet>]) (htmlmessage <String>)|(htmlfile <FileName> [charset <CharSet>])
 #	(replace <Tag> <String>)* (attach <FileName> [charset <CharSet>])*
 def draftMessage(users):
