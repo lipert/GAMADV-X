@@ -22,7 +22,7 @@ For more information, see https://github.com/taers232c/GAMADV-X
 """
 
 __author__ = 'Ross Scroggs <ross.scroggs@gmail.com>'
-__version__ = '4.89.00'
+__version__ = '4.89.01'
 __license__ = 'Apache License 2.0 (http://www.apache.org/licenses/LICENSE-2.0)'
 
 import base64
@@ -189,12 +189,14 @@ DEFAULT_FILE_WRITE_MODE = 'wb'
 APPLICATION_VND_GOOGLE_APPS = 'application/vnd.google-apps.'
 MIMETYPE_GA_DOCUMENT = APPLICATION_VND_GOOGLE_APPS+'document'
 MIMETYPE_GA_DRAWING = APPLICATION_VND_GOOGLE_APPS+'drawing'
+MIMETYPE_GA_FILE = APPLICATION_VND_GOOGLE_APPS+'file'
 MIMETYPE_GA_FOLDER = APPLICATION_VND_GOOGLE_APPS+'folder'
 MIMETYPE_GA_FORM = APPLICATION_VND_GOOGLE_APPS+'form'
 MIMETYPE_GA_FUSIONTABLE = APPLICATION_VND_GOOGLE_APPS+'fusiontable'
 MIMETYPE_GA_MAP = APPLICATION_VND_GOOGLE_APPS+'map'
 MIMETYPE_GA_PRESENTATION = APPLICATION_VND_GOOGLE_APPS+'presentation'
 MIMETYPE_GA_SCRIPT = APPLICATION_VND_GOOGLE_APPS+'script'
+MIMETYPE_GA_SHORTCUT = APPLICATION_VND_GOOGLE_APPS+'drive-sdk'
 MIMETYPE_GA_SITE = APPLICATION_VND_GOOGLE_APPS+'site'
 MIMETYPE_GA_SPREADSHEET = APPLICATION_VND_GOOGLE_APPS+'spreadsheet'
 
@@ -28468,6 +28470,7 @@ MIMETYPE_CHOICE_MAP = {
   'gdoc': MIMETYPE_GA_DOCUMENT,
   'gdocument': MIMETYPE_GA_DOCUMENT,
   'gdrawing': MIMETYPE_GA_DRAWING,
+  'gfile': MIMETYPE_GA_FILE,
   'gfolder': MIMETYPE_GA_FOLDER,
   'gdirectory': MIMETYPE_GA_FOLDER,
   'gform': MIMETYPE_GA_FORM,
@@ -28475,6 +28478,7 @@ MIMETYPE_CHOICE_MAP = {
   'gmap': MIMETYPE_GA_MAP,
   'gpresentation': MIMETYPE_GA_PRESENTATION,
   'gscript': MIMETYPE_GA_SCRIPT,
+  'gshortcut': MIMETYPE_GA_SHORTCUT,
   'gsite': MIMETYPE_GA_SITE,
   'gsheet': MIMETYPE_GA_SPREADSHEET,
   'gspreadsheet': MIMETYPE_GA_SPREADSHEET,
@@ -29301,6 +29305,7 @@ DRIVE_PERMISSIONS_SUBFIELDS_CHOICE_MAP = {
   'photolink': 'photoLink',
   'expirationdate': 'expirationDate',
   'expirationtime': 'expirationDate',
+  'permissiondetails': 'permissionDetails',
   'teamdrivepermissiondetails': 'teamDrivePermissionDetails',
   'deleted': 'deleted',
   }
@@ -34028,6 +34033,19 @@ def infoDriveFileACLs(users):
         break
     Ind.Decrement()
 
+def _getPermissionsFields(myarg, fieldsList):
+  if myarg in DRIVE_PERMISSIONS_SUBFIELDS_CHOICE_MAP:
+    addFieldToFieldsList(myarg, DRIVE_PERMISSIONS_SUBFIELDS_CHOICE_MAP, fieldsList)
+  elif myarg == 'fields':
+    for field in _getFieldsList():
+      if field in DRIVE_PERMISSIONS_SUBFIELDS_CHOICE_MAP:
+        addFieldToFieldsList(field, DRIVE_PERMISSIONS_SUBFIELDS_CHOICE_MAP, fieldsList)
+      else:
+        invalidChoiceExit(list(DRIVE_PERMISSIONS_SUBFIELDS_CHOICE_MAP), True)
+  else:
+    return False
+  return True
+
 def _printShowDriveFileACLs(users):
   csvFormat = Act.csvFormat()
   if csvFormat:
@@ -34037,6 +34055,7 @@ def _printShowDriveFileACLs(users):
   fileIdEntity = getDriveFileEntity()
   oneItemPerRow = showTitles = False
   FJQC = FormatJSONQuoteChar()
+  fieldsList = []
   orderBy = initOrderBy()
   fileNameTitle = VX_FILENAME
   while Cmd.ArgumentsRemaining():
@@ -34052,13 +34071,20 @@ def _printShowDriveFileACLs(users):
       if csvFormat:
         addTitlesToCSVfile(fileNameTitle, titles)
         sortTitles.append(fileNameTitle)
+    elif _getPermissionsFields(myarg, fieldsList):
+      pass
     else:
       FJQC.GetFormatJSONQuoteChar(myarg, titles if csvFormat else None)
+  if fieldsList:
+    fields = VX_NPT_PERMISSIONS_FIELDLIST.format(','.join(set(fieldsList)))
+  else:
+    fields = VX_NPT_PERMISSIONS
   printKeys, timeObjects = _getDriveFileACLPrintKeysTimeObjects()
   i, count, users = getEntityArgument(users)
   for user in users:
     i += 1
-    user, drive, jcount = _validateUserGetFileIDs(user, i, count, fileIdEntity, entityType=[Ent.DRIVE_FILE_OR_FOLDER, None][csvFormat or FJQC.formatJSON], orderBy=orderBy['list'])
+    user, drive, jcount = _validateUserGetFileIDs(user, i, count, fileIdEntity,
+                                                  entityType=[Ent.DRIVE_FILE_OR_FOLDER, None][csvFormat or FJQC.formatJSON], orderBy=orderBy['list'])
     if jcount == 0:
       continue
     Ind.Increment()
@@ -34072,8 +34098,9 @@ def _printShowDriveFileACLs(users):
       try:
         results = callGAPIpages(drive.permissions(), 'list', VX_PAGES_PERMISSIONS,
                                 throw_reasons=GAPI.DRIVE_ACCESS_THROW_REASONS,
-                                fileId=fileId, fields=VX_NPT_PERMISSIONS)
-      except (GAPI.fileNotFound, GAPI.forbidden, GAPI.internalError, GAPI.insufficientFilePermissions, GAPI.unknownError) as e:
+                                fileId=fileId, fields=fields)
+      except (GAPI.fileNotFound, GAPI.forbidden, GAPI.internalError, GAPI.insufficientFilePermissions,
+              GAPI.unknownError) as e:
         entityActionFailedWarning([Ent.USER, user, entityType, fileName], str(e), j, jcount)
         continue
       except (GAPI.serviceNotAvailable, GAPI.authError, GAPI.domainPolicy) as e:
@@ -34128,10 +34155,14 @@ def _printShowDriveFileACLs(users):
   if csvFormat:
     writeCSVfile(csvRows, titles, 'Drive File ACLs', todrive, sortTitles, FJQC.quoteChar)
 
-# gam <UserTypeEntity> print drivefileacl <DriveFileEntity> [todrive <ToDriveAttributes>*] [oneitemperrow] [showtitles] [formatjson] [quotechar <Character>]
+# gam <UserTypeEntity> print drivefileacls <DriveFileEntity> [todrive <ToDriveAttributes>*]
+#	[oneitemperrow] [showtitles] [<DrivePermissionsFieldName>*|(fields <DrivePermissionsFieldNameList>)]
 #	(orderby <DriveFileOrderByFieldName> [ascending|descending])*
-# gam <UserTypeEntity> show drivefileacl <DriveFileEntity> [oneitemperrow] [showtitles] [formatjson]
+#	[formatjson] [quotechar <Character>]
+# gam <UserTypeEntity> show drivefileacls <DriveFileEntity>
+#	[oneitemperrow] [showtitles] [<DrivePermissionsFieldName>*|(fields <DrivePermissionsFieldNameList>)]
 #	(orderby <DriveFileOrderByFieldName> [ascending|descending])*
+#	[formatjson]
 def printShowDriveFileACLs(users):
   _printShowDriveFileACLs(users)
 
