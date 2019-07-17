@@ -10,7 +10,7 @@ del /q /f *.wixpdb
 
 set WIXVERSION=3.11
 
-c:\python27-32\scripts\pyinstaller --clean -F --distpath=gamadv-x windows-gam.spec
+c:\python27-32\scripts\pyinstaller --clean --noupx -F --distpath=gamadv-x windows-gam.spec
 xcopy LICENSE gamadv-x\
 xcopy license.rtf gamadv-x\
 xcopy gam-setup.bat gamadv-x\
@@ -19,7 +19,7 @@ xcopy cacerts.pem gamadv-x\
 del gamadv-x\w9xpopen.exe
 "%ProgramFiles%\7-Zip\7z.exe" a -tzip gamadv-x-%1-windows.zip gamadv-x\ -xr!.svn
 
-c:\python27-64\scripts\pyinstaller --clean -F --distpath=gamadv-x-64 windows-gam.spec
+c:\python27-64\scripts\pyinstaller --clean --noupx -F --distpath=gamadv-x-64 windows-gam.spec
 xcopy LICENSE gamadv-x-64\
 xcopy license.rtf gamadv-x-64\
 xcopy gam-setup.bat gamadv-x-64\
