@@ -14260,7 +14260,7 @@ def getMobileDeviceEntity():
 def _getUpdateDeleteMobileOptions(myarg, options):
   if myarg in ['matchusers', 'ifusers']:
     _, matchUsers = getEntityToModify(defaultEntityType=Cmd.ENTITY_USERS)
-    options['matchUsers'] = [normalizeEmailAddressOrUID(user) for user in matchUsers]
+    options['matchUsers'] = set([normalizeEmailAddressOrUID(user) for user in matchUsers])
   elif myarg == 'doit':
     options['doit'] = True
   else:
@@ -14270,7 +14270,7 @@ def _getMobileDeviceUser(mobileDevice, options):
   if options['matchUsers']:
     if mobileDevice['email']:
       for deviceUser in mobileDevice['email']:
-        if deviceUser in options['matchUsers']:
+        if deviceUser.lower() in options['matchUsers']:
           return (deviceUser, True)
       return (mobileDevice['email'][0], False)
     return ('Unknown', False)
@@ -14283,7 +14283,7 @@ def _getMobileDeviceUser(mobileDevice, options):
 def doUpdateMobileDevices():
   entityList, cd = getMobileDeviceEntity()
   body = {}
-  options = {'doit': False, 'matchUsers': None}
+  options = {'doit': False, 'matchUsers': set()}
   while Cmd.ArgumentsRemaining():
     myarg = getArgument()
     if myarg == 'action':
@@ -14321,7 +14321,7 @@ def doUpdateMobileDevices():
 #	[doit] [matchusers <UserTypeEntity>]
 def doDeleteMobileDevices():
   entityList, cd = getMobileDeviceEntity()
-  options = {'doit': False, 'matchUsers': None}
+  options = {'doit': False, 'matchUsers': set()}
   while Cmd.ArgumentsRemaining():
     myarg = getArgument()
     _getUpdateDeleteMobileOptions(myarg, options)
