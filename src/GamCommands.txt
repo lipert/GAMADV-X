@@ -1000,7 +1000,7 @@ gam <CrOSTypeEntity> update action <CrOSAction> [acknowledge_device_touch_requir
 
 <CrOSFieldName> ::=
         activetimeranges|timeranges|
-        annotatedassetid|assedid|asset|
+        annotatedassetid|assetid|asset|
         annotatedlocation|location|
         annotateduser|user|
         bootmode|
