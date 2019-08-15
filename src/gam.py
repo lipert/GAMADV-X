@@ -22,7 +22,7 @@ For more information, see https://github.com/taers232c/GAMADV-X
 """
 
 __author__ = 'Ross Scroggs <ross.scroggs@gmail.com>'
-__version__ = '4.90.05'
+__version__ = '4.90.06'
 __license__ = 'Apache License 2.0 (http://www.apache.org/licenses/LICENSE-2.0)'
 
 import base64
@@ -21729,6 +21729,8 @@ UPDATE_USER_ARGUMENT_TO_PROPERTY_MAP = {
   'posix': 'posixAccounts',
   'posixaccounts': 'posixAccounts',
   'primaryemail': 'primaryEmail',
+  'recoveryemail': 'recoveryEmail',
+  'recoveryphone': 'recoveryPhone',
   'relation': 'relations',
   'relations': 'relations',
   'sha': 'hashFunction',
@@ -21946,6 +21948,12 @@ def getUserAttributes(cd, updateCmd, noUid=False):
         need_to_hash_password = False
       elif up == 'primaryEmail' and updateCmd:
         body[up] = getEmailAddress(noUid=True)
+      elif up == 'recoveryEmail':
+        body[up] = getEmailAddress(noUid=True)
+      elif up == 'recoveryPhone':
+        body[up] = getString(Cmd.OB_STRING)
+        if body[up][0] != '+':
+          body[up] = '+' + body[up]
       elif up == 'customerId' and updateCmd:
         body[up] = getString(Cmd.OB_STRING)
       elif up == 'orgUnitPath':
