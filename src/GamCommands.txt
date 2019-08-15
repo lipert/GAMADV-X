@@ -1003,16 +1003,20 @@ gam <CrOSTypeEntity> update action <CrOSAction> [acknowledge_device_touch_requir
         annotatedassetid|assetid|asset|
         annotatedlocation|location|
         annotateduser|user|
+        autoupdateexpiration|
         bootmode|
         cpustatusreports|
         devicefiles|
         deviceid|
         diskvolumereports|
+        dockmacaddress|
         ethernetmacaddress|
+        ethernetmacaddress0|
         firmwareversion|
         lastenrollmenttime|
         lastsync|
         macaddress|
+        manufacturedate|
         meid|
         model|
         notes|
@@ -1260,7 +1264,7 @@ gam <UserTypeEntity> update contacts <UserContactSelection> endquery <ContactAtt
 gam <UserTypeEntity> clear contacts <ContactEntity>|<UserContactSelection>
         [emailclearpattern <RegularExpression>] [emailcleartype work|home|other|<String>]
         [delete_cleared_contacts_with_no_emails]
- gam <UserTypeEntity> dedup contacts <ContactEntity>|<UserContactSelection> [matchType [<Boolean>]]
+gam <UserTypeEntity> dedup contacts <ContactEntity>|<UserContactSelection> [matchType [<Boolean>]]
 gam <UserTypeEntity> delete contacts <ContactEntity>|<UserContactSelection>
 
 gam <UserTypeEntity> info contacts <ContactEntity>
