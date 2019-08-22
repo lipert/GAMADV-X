@@ -11761,7 +11761,7 @@ class ContactsManager(object):
   def AddFilteredContactGroupsToContact(contactsObject, contactEntry, contactGroupsList, user, contactRemoveGroupsList):
     contactEntry.groupMembershipInfo = []
     for groupId in contactGroupsList:
-      if not contactRemoveGroupsList or groupId not in contactRemoveGroupsList:
+      if groupId not in contactRemoveGroupsList:
         contactEntry.groupMembershipInfo.append(gdata.apps.contacts.GroupMembershipInfo(deleted='false',
                                                                                         href=contactsObject.GetContactGroupFeedUri(contact_list=user, projection='base', groupId=groupId)))
   @staticmethod
@@ -12238,9 +12238,9 @@ def _clearUpdateContacts(users, entityType, updateContacts):
       setSysExitRC(NO_ENTITIES_FOUND)
       continue
     contactGroupsList = {
-      CONTACT_GROUPS_LIST: None,
-      CONTACT_ADD_GROUPS_LIST: None,
-      CONTACT_REMOVE_GROUPS_LIST: None
+      CONTACT_GROUPS_LIST: [],
+      CONTACT_ADD_GROUPS_LIST: [],
+      CONTACT_REMOVE_GROUPS_LIST: []
       }
     Ind.Increment()
     for contact in entityList:
